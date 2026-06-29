@@ -1,0 +1,17 @@
+version:
+  revision: "phase1-scaffold"
+  channel: "stable"
+project_type: app
+migration:
+  platforms:
+    - platform: root
+      create_revision: phase1-scaffold
+      base_revision: phase1-scaffold
+    - platform: android
+      create_revision: phase1-scaffold
+      base_revision: phase1-scaffold
+    - platform: windows
+      create_revision: phase1-scaffold
+      base_revision: phase1-scaffold
+unmanaged_files:
+  - 'lib/main.dart'
