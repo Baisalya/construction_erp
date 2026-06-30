@@ -1,14 +1,14 @@
-import 'package:construction_erp_phase5/core/domain/write_context.dart';
-import 'package:construction_erp_phase5/core/value_objects/money.dart';
-import 'package:construction_erp_phase5/database/local_database.dart';
-import 'package:construction_erp_phase5/features/tender/data/tender_repository.dart';
-import 'package:construction_erp_phase5/features/tender/domain/bidder_profile.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_application.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_document.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_expense.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_expense_type.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_status.dart';
-import 'package:construction_erp_phase5/features/tender/domain/tender_to_project_conversion.dart';
+import 'package:construction_erp/core/domain/write_context.dart';
+import 'package:construction_erp/core/value_objects/money.dart';
+import 'package:construction_erp/database/local_database.dart';
+import 'package:construction_erp/features/tender/data/tender_repository.dart';
+import 'package:construction_erp/features/tender/domain/bidder_profile.dart';
+import 'package:construction_erp/features/tender/domain/tender_application.dart';
+import 'package:construction_erp/features/tender/domain/tender_document.dart';
+import 'package:construction_erp/features/tender/domain/tender_expense.dart';
+import 'package:construction_erp/features/tender/domain/tender_expense_type.dart';
+import 'package:construction_erp/features/tender/domain/tender_status.dart';
+import 'package:construction_erp/features/tender/domain/tender_to_project_conversion.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

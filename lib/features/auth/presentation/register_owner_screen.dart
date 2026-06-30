@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../shared/presentation/app_feedback.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_providers.dart';
@@ -136,7 +138,8 @@ class _RegisterOwnerScreenState extends ConsumerState<RegisterOwnerScreen> {
     } on AuthFailure catch (failure) {
       setState(() => _error = failure.message);
     } catch (error) {
-      setState(() => _error = '$error');
+      setState(() => _error = friendlyErrorMessage(error,
+          fallback: 'The account could not be created. Please try again.'));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

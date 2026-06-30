@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
+import '../../../shared/formatters/positive_decimal_input_formatter.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../../features/fuel/domain/fuel_records.dart';
 import '../../project/domain/project_record.dart';
 import '../../work/presentation/work_project_provider.dart';
@@ -112,90 +114,105 @@ class _MachineryPageState extends ConsumerState<MachineryPage> {
                         padding: EdgeInsets.all(24),
                         child: CircularProgressIndicator())),
                 error: (error, stackTrace) =>
-                    _MessageCard(message: error.toString()),
+                    _MessageCard(message: friendlyErrorMessage(error)),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => _MessageCard(message: error.toString()),
+        error: (error, stackTrace) =>
+            _MessageCard(message: friendlyErrorMessage(error)),
       ),
     );
   }
 
   Future<void> _saveMachineFlow(String projectId) async {
-    final machineryRepository = ref.read(machineryRepositoryProvider);
-    final fuelRepository = ref.read(fuelRepositoryProvider);
-    final writeContext = ref.read(localWriteContextProvider);
-    final machineId = await machineryRepository.createMachine(
-      MachineDraft(
-          machineName: _machineController.text,
-          machineType: 'Earthwork',
-          ownershipType: _ownership,
-          ownerName: _ownership == MachineOwnershipType.rental
-              ? _ownerController.text
-              : null),
-      writeContext,
-    );
-    await machineryRepository.createUsageEntry(
-      MachineUsageDraft(
-        projectId: projectId,
-        machineId: machineId,
-        usageDate: writeContext.timestamp,
-        workDescription: 'Local machine usage',
-        chargeType: _chargeType,
-        hoursUsed: _chargeType == MachineChargeType.hourly
-            ? DecimalQuantity.parse(_quantityController.text)
-            : null,
-        daysUsed: _chargeType == MachineChargeType.daily
-            ? DecimalQuantity.parse(_quantityController.text)
-            : null,
-        quantity: _chargeType != MachineChargeType.hourly &&
-                _chargeType != MachineChargeType.daily
-            ? DecimalQuantity.parse(_quantityController.text)
-            : null,
-        rate: Money.parseRupees(_rateController.text),
-        paidAmount: Money.parseRupees(_paidController.text),
-      ),
-      writeContext,
-    );
-    final fuelTypeId = await fuelRepository.createFuelType(
-      FuelTypeDraft(
-          name: 'Diesel',
-          defaultRate: Money.parseRupees(_fuelRateController.text)),
-      writeContext,
-    );
-    await fuelRepository.createFuelEntry(
-      FuelEntryDraft(
-        projectId: projectId,
-        fuelDate: writeContext.timestamp,
-        fuelTypeId: fuelTypeId,
-        quantity: DecimalQuantity.parse(_fuelQuantityController.text),
-        rate: Money.parseRupees(_fuelRateController.text),
-        usedForType: FuelUsedForType.machinery,
-        machineId: machineId,
-      ),
-      writeContext,
-    );
-    await machineryRepository.recordRepair(
-      MachineRepairDraft(
-        machineId: machineId,
-        projectId: projectId,
-        repairDate: writeContext.timestamp,
-        repairDescription: 'Local repair entry',
-        partsCost: Money.parseRupees(_repairPartsController.text),
-        laborCost: Money.parseRupees(_repairLaborController.text),
-      ),
-      writeContext,
-    );
-    ref.invalidate(machineUsageViewProvider(projectId));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Machinery usage, fuel, and repair saved locally.')));
+    try {
+      final machineryRepository = ref.read(machineryRepositoryProvider);
+      final fuelRepository = ref.read(fuelRepositoryProvider);
+      final writeContext = ref.read(localWriteContextProvider);
+      final machineId = await machineryRepository.createMachine(
+        MachineDraft(
+            machineName: _machineController.text,
+            machineType: 'Earthwork',
+            ownershipType: _ownership,
+            ownerName: _ownership == MachineOwnershipType.rental
+                ? _ownerController.text
+                : null),
+        writeContext,
+      );
+      await machineryRepository.createUsageEntry(
+        MachineUsageDraft(
+          projectId: projectId,
+          machineId: machineId,
+          usageDate: writeContext.timestamp,
+          workDescription: 'Local machine usage',
+          chargeType: _chargeType,
+          hoursUsed: _chargeType == MachineChargeType.hourly
+              ? DecimalQuantity.parse(_quantityController.text)
+              : null,
+          daysUsed: _chargeType == MachineChargeType.daily
+              ? DecimalQuantity.parse(_quantityController.text)
+              : null,
+          quantity: _chargeType != MachineChargeType.hourly &&
+                  _chargeType != MachineChargeType.daily
+              ? DecimalQuantity.parse(_quantityController.text)
+              : null,
+          rate: Money.parseRupees(_rateController.text),
+          paidAmount: Money.parseRupees(_paidController.text),
+        ),
+        writeContext,
+      );
+      final fuelTypeId = await fuelRepository.createFuelType(
+        FuelTypeDraft(
+            name: 'Diesel',
+            defaultRate: Money.parseRupees(_fuelRateController.text)),
+        writeContext,
+      );
+      await fuelRepository.createFuelEntry(
+        FuelEntryDraft(
+          projectId: projectId,
+          fuelDate: writeContext.timestamp,
+          fuelTypeId: fuelTypeId,
+          quantity: DecimalQuantity.parse(_fuelQuantityController.text),
+          rate: Money.parseRupees(_fuelRateController.text),
+          usedForType: FuelUsedForType.machinery,
+          machineId: machineId,
+        ),
+        writeContext,
+      );
+      await machineryRepository.recordRepair(
+        MachineRepairDraft(
+          machineId: machineId,
+          projectId: projectId,
+          repairDate: writeContext.timestamp,
+          repairDescription: 'Local repair entry',
+          partsCost: Money.parseRupees(_repairPartsController.text),
+          laborCost: Money.parseRupees(_repairLaborController.text),
+        ),
+        writeContext,
+      );
+      ref.invalidate(machineUsageViewProvider(projectId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Machinery, fuel and repair saved successfully.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
     }
   }
 
   Future<void> _deleteUsage(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete machinery usage?',
+      message: 'This usage cost will be removed from project totals.',
+    )) {
+      return;
+    }
     await ref.read(localRecordMaintenanceProvider).softDelete(
         'machine_usage_entries', id, ref.read(localWriteContextProvider));
     ref.invalidate(machineUsageViewProvider(projectId));
@@ -314,10 +331,37 @@ class _MachineryQuickEntry extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-                onPressed: onSave,
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                machineController,
+                quantityController,
+                rateController,
+                paidController,
+                ownerController,
+                fuelQuantityController,
+                fuelRateController,
+                repairPartsController,
+                repairLaborController,
+              ]),
+              builder: (context, _) => FilledButton.icon(
+                onPressed: _validMachineryEntry(
+                  machineController,
+                  quantityController,
+                  rateController,
+                  paidController,
+                  ownerController,
+                  ownership,
+                  fuelQuantityController,
+                  fuelRateController,
+                  repairPartsController,
+                  repairLaborController,
+                )
+                    ? onSave
+                    : null,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save machinery flow')),
+                label: const Text('Save machinery flow'),
+              ),
+            ),
           ],
         ),
       ),
@@ -336,23 +380,57 @@ class _MachineUsageList extends StatelessWidget {
     if (usages.isEmpty) {
       return const _MessageCard(message: 'No machine usage yet.');
     }
-    return Column(
-      children: [
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 800) {
+        return Card(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Charge type')),
+                DataColumn(label: Text('Total')),
+                DataColumn(label: Text('Paid')),
+                DataColumn(label: Text('Pending')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: [
+                for (final usage in usages)
+                  DataRow(cells: [
+                    DataCell(Text(usage.chargeType.value)),
+                    DataCell(Text(usage.totalAmount.format())),
+                    DataCell(Text(usage.paidAmount.format())),
+                    DataCell(Text(usage.pendingAmount.format())),
+                    DataCell(Text(paymentStatusLabel(
+                        paid: usage.paidAmount, pending: usage.pendingAmount))),
+                    DataCell(IconButton(
+                      tooltip: 'Delete usage',
+                      onPressed: () => onDelete(usage.id),
+                      icon: const Icon(Icons.delete_outline),
+                    )),
+                  ]),
+              ],
+            ),
+          ),
+        );
+      }
+      return Column(children: [
         for (final usage in usages)
           Card(
             child: ListTile(
               leading: const Icon(Icons.precision_manufacturing_outlined),
               title: Text('${usage.chargeType.value} usage'),
               subtitle: Text(
-                  'Total ${usage.totalAmount.format()} • Pending ${usage.pendingAmount.format()} • ${usage.paymentStatus.value}'),
+                  'Total ${usage.totalAmount.format()} • Paid ${usage.paidAmount.format()} • Pending ${usage.pendingAmount.format()}\n${paymentStatusLabel(paid: usage.paidAmount, pending: usage.pendingAmount)}'),
+              isThreeLine: true,
               trailing: IconButton(
                   tooltip: 'Delete usage',
                   onPressed: () => onDelete(usage.id),
                   icon: const Icon(Icons.delete_outline)),
             ),
           ),
-      ],
-    );
+      ]);
+    });
   }
 }
 
@@ -364,12 +442,60 @@ class _Input extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final numeric = label.contains('₹') ||
+        label.contains('quantity') ||
+        label.contains('liter');
     return SizedBox(
         width: 190,
         child: TextField(
             controller: controller,
+            keyboardType: numeric
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.text,
+            inputFormatters:
+                numeric ? const [PositiveDecimalInputFormatter()] : null,
             decoration: const InputDecoration(border: OutlineInputBorder())
                 .copyWith(labelText: label)));
+  }
+}
+
+bool _validMachineryEntry(
+  TextEditingController machine,
+  TextEditingController quantity,
+  TextEditingController rate,
+  TextEditingController paid,
+  TextEditingController owner,
+  MachineOwnershipType ownership,
+  TextEditingController fuelQuantity,
+  TextEditingController fuelRate,
+  TextEditingController repairParts,
+  TextEditingController repairLabor,
+) {
+  if (machine.text.trim().isEmpty ||
+      (ownership == MachineOwnershipType.rental && owner.text.trim().isEmpty)) {
+    return false;
+  }
+  try {
+    final usage = DecimalQuantity.parse(quantity.text);
+    final fuel = DecimalQuantity.parse(fuelQuantity.text);
+    final usageRate = Money.parseRupees(rate.text);
+    final usagePaid = Money.parseRupees(paid.text);
+    final usageTotal = usage.multiplyMoney(usageRate);
+    final costs = [
+      usageRate,
+      usagePaid,
+      Money.parseRupees(fuelRate.text),
+      Money.parseRupees(repairParts.text),
+      Money.parseRupees(repairLabor.text),
+    ];
+    return !usage.isZero &&
+        !usage.isNegative &&
+        !fuel.isZero &&
+        !fuel.isNegative &&
+        costs.every((value) => !value.isNegative) &&
+        usagePaid.paise <= usageTotal.paise;
+  } catch (_) {
+    return false;
   }
 }
 

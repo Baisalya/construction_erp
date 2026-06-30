@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/presentation/app_feedback.dart';
+
 import '../../../core/permissions/permission_key.dart';
 import '../../../core/permissions/role_type.dart';
 import '../../auth/data/auth_providers.dart';
@@ -17,7 +19,9 @@ class RolePermissionScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Roles and permissions')),
       body: access.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Cannot load access: $error')),
+        error: (error, _) => Center(
+            child: Text(friendlyErrorMessage(error,
+                fallback: 'Staff access could not be loaded.'))),
         data: (service) {
           final policy = service?.policy;
           if (policy == null || !policy.can(PermissionKey.staffManagement)) {
@@ -75,7 +79,7 @@ class _EditableRoleCardState extends ConsumerState<_EditableRoleCard> {
             });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
     }
   }
 
@@ -157,7 +161,7 @@ class _EditableRoleCardState extends ConsumerState<_EditableRoleCard> {
         );
       }
     } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
+import '../../../shared/formatters/positive_decimal_input_formatter.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../machinery/domain/machinery_records.dart';
 import '../../project/domain/project_record.dart';
 import '../../work/presentation/work_project_provider.dart';
@@ -76,7 +78,7 @@ class _FuelPageState extends ConsumerState<FuelPage> {
     return SafeArea(
         child: projects.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text(error.toString())),
+      error: (error, stack) => Center(child: Text(friendlyErrorMessage(error))),
       data: (projectItems) {
         if (projectItems.isEmpty) {
           return const Center(
@@ -91,10 +93,10 @@ class _FuelPageState extends ConsumerState<FuelPage> {
           const SizedBox(height: 14),
           types.when(
             loading: () => const LinearProgressIndicator(),
-            error: (error, stack) => Text(error.toString()),
+            error: (error, stack) => Text(friendlyErrorMessage(error)),
             data: (typeItems) => machines.when(
               loading: () => const LinearProgressIndicator(),
-              error: (error, stack) => Text(error.toString()),
+              error: (error, stack) => Text(friendlyErrorMessage(error)),
               data: (machineItems) =>
                   _forms(projectId, typeItems, machineItems),
             ),
@@ -102,7 +104,7 @@ class _FuelPageState extends ConsumerState<FuelPage> {
           const SizedBox(height: 14),
           entries.when(
             loading: () => const LinearProgressIndicator(),
-            error: (error, stack) => Text(error.toString()),
+            error: (error, stack) => Text(friendlyErrorMessage(error)),
             data: (items) => Card(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +126,7 @@ class _FuelPageState extends ConsumerState<FuelPage> {
                       title: Text(
                           '${item.quantity} × ${item.rate.format()} = ${item.totalAmount.format()}'),
                       subtitle: Text(
-                          '${_usedForLabel(item.usedForType)} • Paid ${item.paidAmount.format()} • Pending ${item.pendingAmount.format()}${item.description == null ? '' : '\n${item.description}'}'),
+                          '${_usedForLabel(item.usedForType)} • Total ${item.totalAmount.format()}\nPaid ${item.paidAmount.format()} • Pending ${item.pendingAmount.format()} • ${paymentStatusLabel(paid: item.paidAmount, pending: item.pendingAmount)}${item.description == null ? '' : '\n${item.description}'}'),
                       isThreeLine: item.description != null,
                       trailing: Wrap(children: [
                         IconButton(
@@ -328,7 +330,7 @@ class _FuelPageState extends ConsumerState<FuelPage> {
       _typeName.clear();
       _typeRate.clear();
     } catch (error) {
-      _message(error.toString());
+      _message(friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -360,13 +362,20 @@ class _FuelPageState extends ConsumerState<FuelPage> {
       ref.invalidate(fuelEntriesViewProvider(projectId));
       _clear();
     } catch (error) {
-      _message(error.toString());
+      _message(friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _delete(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete fuel entry?',
+      message: 'This fuel cost will be removed from project totals.',
+    )) {
+      return;
+    }
     await ref
         .read(fuelRepositoryProvider)
         .deleteFuelEntry(id, ref.read(localWriteContextProvider));
@@ -414,6 +423,8 @@ class _Field extends StatelessWidget {
           keyboardType: number
               ? const TextInputType.numberWithOptions(decimal: true)
               : null,
+          inputFormatters:
+              number ? const [PositiveDecimalInputFormatter()] : null,
           decoration: InputDecoration(
               labelText: label, border: const OutlineInputBorder())));
 }

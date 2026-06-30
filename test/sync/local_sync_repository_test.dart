@@ -1,6 +1,6 @@
-import 'package:construction_erp_phase5/database/local_database.dart';
-import 'package:construction_erp_phase5/sync/data/local_sync_repository.dart';
-import 'package:construction_erp_phase5/sync/domain/sync_delta.dart';
+import 'package:construction_erp/database/local_database.dart';
+import 'package:construction_erp/sync/data/local_sync_repository.dart';
+import 'package:construction_erp/sync/domain/sync_delta.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

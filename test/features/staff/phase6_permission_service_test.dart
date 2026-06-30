@@ -1,10 +1,10 @@
-import 'package:construction_erp_phase5/core/permissions/permission_key.dart';
-import 'package:construction_erp_phase5/core/permissions/role_type.dart';
-import 'package:construction_erp_phase5/core/permissions/staff_status.dart';
-import 'package:construction_erp_phase5/features/staff/domain/default_role_permissions.dart';
-import 'package:construction_erp_phase5/features/staff/domain/permission_service.dart';
-import 'package:construction_erp_phase5/features/staff/domain/staff_access_policy.dart';
-import 'package:construction_erp_phase5/features/staff/domain/staff_profile.dart';
+import 'package:construction_erp/core/permissions/permission_key.dart';
+import 'package:construction_erp/core/permissions/role_type.dart';
+import 'package:construction_erp/core/permissions/staff_status.dart';
+import 'package:construction_erp/features/staff/domain/default_role_permissions.dart';
+import 'package:construction_erp/features/staff/domain/permission_service.dart';
+import 'package:construction_erp/features/staff/domain/staff_access_policy.dart';
+import 'package:construction_erp/features/staff/domain/staff_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

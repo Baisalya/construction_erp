@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class FirebaseSetupErrorScreen extends StatelessWidget {
   const FirebaseSetupErrorScreen({
@@ -33,21 +34,23 @@ class FirebaseSetupErrorScreen extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Firebase setup needed',
+                              'Cloud sign-in is unavailable',
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Text(errorMessage),
-                      const SizedBox(height: 16),
                       const Text(
-                        'Run flutterfire configure for Android and Windows, then replace lib/firebase_options.dart. Business data remains local-first; Firebase is only for auth, company, staff and permission metadata in Phase 6.',
+                        'The app could not connect to the sign-in service. Check your internet connection and restart the app. Your existing local company data has not been removed.',
                       ),
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        Text('Developer details: $errorMessage'),
+                      ],
                       const SizedBox(height: 12),
                       const Text(
-                        'Access is not bypassed when Firebase initialization fails. Restart the app after fixing configuration.',
+                        'If this continues, ask your administrator to check the app configuration.',
                       ),
                     ],
                   ),

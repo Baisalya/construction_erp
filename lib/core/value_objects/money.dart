@@ -46,7 +46,19 @@ class Money implements Comparable<Money> {
     final rupees = absolute ~/ 100;
     final paisePart = absolute % 100;
     final sign = paise < 0 ? '-' : '';
-    return '$sign$symbol$rupees.${paisePart.toString().padLeft(2, '0')}';
+    return '$sign$symbol${_indianDigits(rupees)}.${paisePart.toString().padLeft(2, '0')}';
+  }
+
+  static String _indianDigits(int value) {
+    final digits = value.toString();
+    if (digits.length <= 3) return digits;
+    final lastThree = digits.substring(digits.length - 3);
+    final leading = digits.substring(0, digits.length - 3);
+    final groups = <String>[];
+    for (var end = leading.length; end > 0; end -= 2) {
+      groups.insert(0, leading.substring(end < 2 ? 0 : end - 2, end));
+    }
+    return '${groups.join(',')},$lastThree';
   }
 
   String get inputText {

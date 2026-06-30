@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/permissions/permission_key.dart';
 import '../../../core/value_objects/money.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../auth/data/auth_providers.dart';
 import '../domain/agreement_deduction.dart';
 import '../domain/agreement_deduction_type.dart';
@@ -48,7 +49,7 @@ class ProjectPage extends ConsumerWidget {
             data: (data) => _ProjectStatsCards(stats: data),
             loading: () => const LinearProgressIndicator(),
             error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
+                _InlineError(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           if (canWrite) ...[
@@ -59,7 +60,7 @@ class ProjectPage extends ConsumerWidget {
                       padding: EdgeInsets.all(18),
                       child: Text('Loading projects...'))),
               error: (error, stackTrace) =>
-                  _InlineError(message: error.toString()),
+                  _InlineError(message: friendlyErrorMessage(error)),
             ),
             const SizedBox(height: 14),
           ] else ...[
@@ -79,7 +80,7 @@ class ProjectPage extends ConsumerWidget {
                     padding: EdgeInsets.all(18),
                     child: Text('Loading project list...'))),
             error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
+                _InlineError(message: friendlyErrorMessage(error)),
           ),
         ],
       ),
@@ -116,7 +117,7 @@ class _ProjectHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const Chip(label: Text('Phase 4')),
+            const Chip(label: Text('Project management')),
           ],
         ),
       ),
@@ -324,7 +325,7 @@ class _AddProjectTileState extends ConsumerState<_AddProjectTile> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -531,7 +532,7 @@ class _AgreementCalculatorTileState
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -568,7 +569,7 @@ class _AgreementCalculatorTileState
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -684,7 +685,7 @@ class _AddMilestoneTileState extends ConsumerState<_AddMilestoneTile> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -714,7 +715,8 @@ class _AgreementPreview extends ConsumerWidget {
           ? const SizedBox.shrink()
           : _AgreementSummaryCard(summary: data),
       loading: () => const LinearProgressIndicator(),
-      error: (error, stackTrace) => _InlineError(message: error.toString()),
+      error: (error, stackTrace) =>
+          _InlineError(message: friendlyErrorMessage(error)),
     );
   }
 }

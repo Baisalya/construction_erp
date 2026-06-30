@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,7 +7,7 @@ import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
-import '../../../database/schema/app_schema_sql.dart';
+import '../../../sync/data/local_delta_writer.dart';
 import '../domain/material_module_contract.dart';
 import '../domain/material_records.dart';
 
@@ -192,6 +190,14 @@ class MaterialRepository implements MaterialModuleContract {
               gstAmount: itemTotals.gstAmount,
               totalAmount: itemTotals.totalAmount)
         });
+        await _queueDelta(
+          context: context,
+          now: now,
+          entityType: 'material_purchase_items',
+          entityId: itemId,
+          operation: 'insert',
+          payload: itemPayloads.last,
+        );
       }
 
       await _queueDelta(
@@ -473,30 +479,14 @@ class MaterialRepository implements MaterialModuleContract {
     required String operation,
     required Map<String, Object?> payload,
   }) async {
-    final deltaId = _uuid.v4();
-    await database.customStatement(
-      '''
-      INSERT INTO sync_queue (
-        id, company_id, created_at, updated_at, created_by_user_id,
-        updated_by_user_id, is_deleted, sync_status, version,
-        entity_type, entity_id, operation, payload_json, device_id,
-        schema_version, status, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pendingUpload', 1, ?, ?, ?, ?, ?, ?, 'pendingUpload', NULL);
-      ''',
-      [
-        Variable<String>(deltaId),
-        Variable<String>(context.companyId),
-        Variable<int>(now),
-        Variable<int>(now),
-        Variable<String>(context.userId),
-        Variable<String>(context.userId),
-        Variable<String>(entityType),
-        Variable<String>(entityId),
-        Variable<String>(operation),
-        Variable<String>(jsonEncode(payload)),
-        Variable<String>(context.deviceId),
-        Variable<int>(AppSchemaSql.schemaVersion),
-      ],
+    await LocalDeltaWriter.queue(
+      database: database,
+      context: context,
+      createdAt: now,
+      entityType: entityType,
+      entityId: entityId,
+      operation: operation,
+      fallbackPayload: payload,
     );
   }
 

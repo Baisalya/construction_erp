@@ -52,6 +52,30 @@ class ConstructionDatabase extends GeneratedDatabase {
       for (final statement in AppSchemaSql.createTables) {
         await customStatement(statement);
       }
+      if (storedVersion < 2) {
+        await _addColumnIfMissing(
+          'sync_queue',
+          'base_version',
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+        await _addColumnIfMissing(
+          'sync_queue',
+          'new_version',
+          'INTEGER NOT NULL DEFAULT 1',
+        );
+      }
+      if (storedVersion < 3) {
+        await _addColumnIfMissing(
+          'sync_conflicts',
+          'remote_delta_id',
+          'TEXT',
+        );
+        await _addColumnIfMissing(
+          'sync_conflicts',
+          'remote_operation',
+          'TEXT',
+        );
+      }
       for (final statement in AppSchemaSql.createIndexes) {
         await customStatement(statement);
       }
@@ -61,6 +85,19 @@ class ConstructionDatabase extends GeneratedDatabase {
           'PRAGMA user_version = ${AppSchemaSql.schemaVersion};');
     });
     _schemaReady = true;
+  }
+
+  Future<void> _addColumnIfMissing(
+    String table,
+    String column,
+    String declaration,
+  ) async {
+    final columns = await customSelect('PRAGMA table_info($table);').get();
+    final exists = columns.any((row) => row.data['name'] == column);
+    if (!exists) {
+      await customStatement(
+          'ALTER TABLE $table ADD COLUMN $column $declaration;');
+    }
   }
 
   Future<int> countRows(String tableName) async {

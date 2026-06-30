@@ -12,10 +12,14 @@ import '../../features/machinery/data/machinery_repository.dart';
 import '../../features/material/data/material_repository.dart';
 import '../../features/project/data/project_repository.dart';
 import '../../features/reports/data/reports_repository.dart';
+import '../../features/reports/data/report_export_service.dart';
+import '../../features/settings/data/local_backup_service.dart';
 import '../../features/tender/data/tender_repository.dart';
 import '../../features/work/data/work_repository.dart';
 import '../../shared/data/module_summary_repository.dart';
 import '../../shared/data/local_record_maintenance_repository.dart';
+import '../../shared/services/local_file_service.dart';
+import '../../sync/data/local_sync_queue_repository.dart';
 import '../../sync/data/local_sync_repository.dart';
 import '../../sync/domain/sync_repository.dart';
 import '../../sync/firebase/firebase_company_gateway.dart';
@@ -50,6 +54,27 @@ final moduleSummaryRepositoryProvider =
 
 final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {
   return ReportsRepository(database: ref.watch(localDatabaseProvider));
+});
+
+final localFileServiceProvider = Provider<LocalFileService>((ref) {
+  return const LocalFileService();
+});
+
+final reportExportServiceProvider = Provider<ReportExportService>((ref) {
+  return ReportExportService(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
+});
+
+final localBackupServiceProvider = Provider<LocalBackupService>((ref) {
+  return LocalBackupService(
+    database: ref.watch(localDatabaseProvider),
+    localQueue: LocalSyncQueueRepository(
+      database: ref.watch(localDatabaseProvider),
+    ),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final tenderRepositoryProvider = Provider<TenderRepository>((ref) {

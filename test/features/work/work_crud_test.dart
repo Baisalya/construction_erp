@@ -1,14 +1,14 @@
-import 'package:construction_erp_phase5/core/domain/write_context.dart';
-import 'package:construction_erp_phase5/core/value_objects/money.dart';
-import 'package:construction_erp_phase5/core/value_objects/quantity.dart';
-import 'package:construction_erp_phase5/database/local_database.dart';
-import 'package:construction_erp_phase5/features/billing/data/billing_repository.dart';
-import 'package:construction_erp_phase5/features/fuel/data/fuel_repository.dart';
-import 'package:construction_erp_phase5/features/fuel/domain/fuel_records.dart';
-import 'package:construction_erp_phase5/features/project/data/project_repository.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_record.dart';
-import 'package:construction_erp_phase5/features/work/data/work_repository.dart';
-import 'package:construction_erp_phase5/features/work/domain/work_records.dart';
+import 'package:construction_erp/core/domain/write_context.dart';
+import 'package:construction_erp/core/value_objects/money.dart';
+import 'package:construction_erp/core/value_objects/quantity.dart';
+import 'package:construction_erp/database/local_database.dart';
+import 'package:construction_erp/features/billing/data/billing_repository.dart';
+import 'package:construction_erp/features/fuel/data/fuel_repository.dart';
+import 'package:construction_erp/features/fuel/domain/fuel_records.dart';
+import 'package:construction_erp/features/project/data/project_repository.dart';
+import 'package:construction_erp/features/project/domain/project_record.dart';
+import 'package:construction_erp/features/work/data/work_repository.dart';
+import 'package:construction_erp/features/work/domain/work_records.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

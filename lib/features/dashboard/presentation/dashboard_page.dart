@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../domain/dashboard_kpis.dart';
 
 final dashboardKpisProvider = FutureProvider.autoDispose<DashboardKpis>((ref) {
@@ -18,8 +19,9 @@ class DashboardPage extends ConsumerWidget {
     return SafeArea(
         child: data.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) =>
-          Center(child: Text('Unable to load dashboard: $error')),
+      error: (error, stack) => Center(
+          child: Text(friendlyErrorMessage(error,
+              fallback: 'The dashboard could not be loaded.'))),
       data: (kpis) => RefreshIndicator(
         onRefresh: () => ref.refresh(dashboardKpisProvider.future),
         child: ListView(padding: const EdgeInsets.all(20), children: [

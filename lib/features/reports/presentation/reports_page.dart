@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../shared/presentation/app_feedback.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../auth/data/auth_providers.dart';
 import '../../billing/domain/billing_records.dart';
 
 final profitLossSummaryProvider =
@@ -18,11 +21,24 @@ class ReportsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(profitLossSummaryProvider);
+    final canExport = ref
+            .watch(permissionServiceProvider)
+            .valueOrNull
+            ?.can(PermissionKey.exportReports) ??
+        false;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const _Header(),
+          _Header(
+            canExport: canExport,
+            onPdf: summary.valueOrNull == null
+                ? null
+                : () => _export(context, ref, summary.valueOrNull!, pdf: true),
+            onExcel: summary.valueOrNull == null
+                ? null
+                : () => _export(context, ref, summary.valueOrNull!, pdf: false),
+          ),
           const SizedBox(height: 14),
           summary.when(
             data: (data) => _ReportBody(summary: data),
@@ -30,16 +46,55 @@ class ReportsPage extends ConsumerWidget {
             error: (error, stackTrace) => Card(
                 child: Padding(
                     padding: const EdgeInsets.all(18),
-                    child: Text(error.toString()))),
+                    child: Text(friendlyErrorMessage(error,
+                        fallback: 'Reports could not be loaded.')))),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _export(
+    BuildContext context,
+    WidgetRef ref,
+    BillingDashboardSummary summary, {
+    required bool pdf,
+  }) async {
+    try {
+      final companyId = ref.read(localWriteContextProvider).companyId;
+      final service = ref.read(reportExportServiceProvider);
+      final document = pdf
+          ? await service.createPdf(companyId: companyId, summary: summary)
+          : await service.createExcel(companyId: companyId, summary: summary);
+      final path = await ref.read(localFileServiceProvider).save(
+            fileName: document.fileName,
+            extension: document.extension,
+            bytes: document.bytes,
+          );
+      if (path != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${document.extension.toUpperCase()} saved.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
+    }
+  }
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({
+    required this.canExport,
+    required this.onPdf,
+    required this.onExcel,
+  });
+
+  final bool canExport;
+  final VoidCallback? onPdf;
+  final VoidCallback? onExcel;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +110,26 @@ class _Header extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
             const Text(
-                'Phase 5 report summary generated from project agreement, work cost, billing receipt, payable and GST ledger records.'),
+                'A clear summary of agreement value, project costs, billing, GST, pending amounts and profit or loss.'),
+            if (canExport) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: onPdf,
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: const Text('Export PDF'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onExcel,
+                    icon: const Icon(Icons.table_view_outlined),
+                    label: const Text('Export Excel'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -81,6 +155,8 @@ class _ReportBody extends StatelessWidget {
             _RowItem('Pending receivable', summary.pendingReceivable.format()),
           ]),
           _ReportCard(title: 'Actual cost', rows: [
+            _RowItem('Estimated project cost',
+                summary.latestEstimateTotal.format()),
             _RowItem('Material', summary.materialCost.format()),
             _RowItem('Labor', summary.laborCost.format()),
             _RowItem('Machinery', summary.machineryCost.format()),

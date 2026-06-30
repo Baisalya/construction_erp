@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
+import '../../../shared/formatters/positive_decimal_input_formatter.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../project/domain/project_record.dart';
 import '../../work/presentation/work_project_provider.dart';
 import '../domain/material_records.dart';
@@ -100,43 +102,58 @@ class _MaterialPageState extends ConsumerState<MaterialPage> {
                         padding: EdgeInsets.all(24),
                         child: CircularProgressIndicator())),
                 error: (error, stackTrace) =>
-                    _ErrorCard(message: error.toString()),
+                    _ErrorCard(message: friendlyErrorMessage(error)),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+        error: (error, stackTrace) =>
+            _ErrorCard(message: friendlyErrorMessage(error)),
       ),
     );
   }
 
   Future<void> _savePurchase(String projectId) async {
-    final repository = ref.read(materialRepositoryProvider);
-    final writeContext = ref.read(localWriteContextProvider);
-    final supplierId = await repository.createSupplier(
-      SupplierDraft(supplierName: _supplierController.text),
-      writeContext,
-    );
-    await repository.createPurchase(
-      MaterialPurchaseDraft(
-        projectId: projectId,
-        supplierId: supplierId,
-        purchaseDate: writeContext.timestamp,
-        billNumber: _billController.text,
-        items: [for (final item in _items) item.toDraft()],
-        paidAmount: Money.parseRupees(_paidController.text),
-      ),
-      writeContext,
-    );
-    ref.invalidate(materialPurchasesViewProvider(projectId));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Material purchase saved locally.')));
+    try {
+      final repository = ref.read(materialRepositoryProvider);
+      final writeContext = ref.read(localWriteContextProvider);
+      final supplierId = await repository.createSupplier(
+        SupplierDraft(supplierName: _supplierController.text.trim()),
+        writeContext,
+      );
+      await repository.createPurchase(
+        MaterialPurchaseDraft(
+          projectId: projectId,
+          supplierId: supplierId,
+          purchaseDate: writeContext.timestamp,
+          billNumber: _billController.text.trim(),
+          items: [for (final item in _items) item.toDraft()],
+          paidAmount: Money.parseRupees(_paidController.text),
+        ),
+        writeContext,
+      );
+      ref.invalidate(materialPurchasesViewProvider(projectId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Material purchase saved successfully.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
     }
   }
 
   Future<void> _deletePurchase(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete material purchase?',
+      message: 'This purchase will be removed from project totals.',
+    )) {
+      return;
+    }
     await ref.read(localRecordMaintenanceProvider).softDelete(
         'material_purchases', id, ref.read(localWriteContextProvider));
     ref.invalidate(materialPurchasesViewProvider(projectId));
@@ -231,10 +248,27 @@ class _MaterialQuickEntry extends StatelessWidget {
                 icon: const Icon(Icons.add),
                 label: const Text('Add another material item')),
             const SizedBox(height: 16),
-            FilledButton.icon(
-                onPressed: onSave,
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                supplierController,
+                paidController,
+                for (final item in items) ...[
+                  item.name,
+                  item.unit,
+                  item.quantity,
+                  item.rate,
+                  item.gst,
+                ],
+              ]),
+              builder: (context, _) => FilledButton.icon(
+                onPressed: _validMaterialEntry(
+                        supplierController, paidController, items)
+                    ? onSave
+                    : null,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save material purchase')),
+                label: const Text('Save material purchase'),
+              ),
+            ),
           ],
         ),
       ),
@@ -254,8 +288,46 @@ class _PurchaseList extends StatelessWidget {
       return const _EmptyCard(
           message: 'No material purchase yet for this project.');
     }
-    return Column(
-      children: [
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 800) {
+        return Card(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Material')),
+                DataColumn(label: Text('Items')),
+                DataColumn(label: Text('Total')),
+                DataColumn(label: Text('Paid')),
+                DataColumn(label: Text('Pending')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: [
+                for (final purchase in purchases)
+                  DataRow(cells: [
+                    DataCell(Text(purchase.items.isEmpty
+                        ? 'Material purchase'
+                        : purchase.items.first.materialName)),
+                    DataCell(Text('${purchase.items.length}')),
+                    DataCell(Text(purchase.totalAmount.format())),
+                    DataCell(Text(purchase.paidAmount.format())),
+                    DataCell(Text(purchase.pendingAmount.format())),
+                    DataCell(Text(paymentStatusLabel(
+                        paid: purchase.paidAmount,
+                        pending: purchase.pendingAmount))),
+                    DataCell(IconButton(
+                      tooltip: 'Delete purchase',
+                      onPressed: () => onDelete(purchase.id),
+                      icon: const Icon(Icons.delete_outline),
+                    )),
+                  ]),
+              ],
+            ),
+          ),
+        );
+      }
+      return Column(children: [
         for (final purchase in purchases)
           Card(
             child: ListTile(
@@ -264,7 +336,8 @@ class _PurchaseList extends StatelessWidget {
                   ? 'Material purchase'
                   : purchase.items.first.materialName),
               subtitle: Text(
-                  'Total ${purchase.totalAmount.format()} • Pending ${purchase.pendingAmount.format()} • ${purchase.paymentStatus.value}'),
+                  'Total ${purchase.totalAmount.format()} • Paid ${purchase.paidAmount.format()} • Pending ${purchase.pendingAmount.format()}\n${paymentStatusLabel(paid: purchase.paidAmount, pending: purchase.pendingAmount)}'),
+              isThreeLine: true,
               trailing: Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
@@ -276,8 +349,8 @@ class _PurchaseList extends StatelessWidget {
                   ]),
             ),
           ),
-      ],
-    );
+      ]);
+    });
   }
 }
 
@@ -324,14 +397,40 @@ class _Input extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final numeric = label.contains('₹') ||
+        label.contains('Quantity') ||
+        label.contains('GST');
     return SizedBox(
       width: 190,
       child: TextField(
         controller: controller,
+        keyboardType: numeric
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : TextInputType.text,
+        inputFormatters:
+            numeric ? const [PositiveDecimalInputFormatter()] : null,
         decoration: const InputDecoration(border: OutlineInputBorder())
             .copyWith(labelText: label),
       ),
     );
+  }
+}
+
+bool _validMaterialEntry(
+  TextEditingController supplier,
+  TextEditingController paid,
+  List<_MaterialItemControllers> items,
+) {
+  if (supplier.text.trim().isEmpty || items.isEmpty) return false;
+  try {
+    MaterialCalculator().calculatePurchase(
+      items.map((item) => item.toDraft()).toList(growable: false),
+      Money.parseRupees(paid.text),
+    );
+    return items.every((item) =>
+        item.name.text.trim().isNotEmpty && item.unit.text.trim().isNotEmpty);
+  } catch (_) {
+    return false;
   }
 }
 

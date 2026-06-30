@@ -1,6 +1,8 @@
-import 'package:construction_erp_phase5/core/permissions/staff_status.dart';
+import 'package:construction_erp/core/permissions/staff_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../shared/presentation/app_feedback.dart';
 
 import '../../../shared/presentation/app_shell.dart';
 import '../data/auth_providers.dart';
@@ -45,14 +47,14 @@ class AuthGate extends ConsumerWidget {
               const _GateLoading(message: 'Checking company access...'),
           error: (error, stackTrace) => BlockedAccessScreen(
             status: 'error',
-            message: '$error',
+            message: friendlyErrorMessage(error),
           ),
         );
       },
       loading: () => const _GateLoading(message: 'Checking login...'),
       error: (error, stackTrace) => BlockedAccessScreen(
         status: 'auth_error',
-        message: '$error',
+        message: friendlyErrorMessage(error),
       ),
     );
   }

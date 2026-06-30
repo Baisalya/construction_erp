@@ -6,6 +6,8 @@ import '../../features/auth/presentation/company_setup_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_owner_screen.dart';
 import '../../features/staff/presentation/role_permission_screen.dart';
+import '../../sync/presentation/sync_status_screen.dart';
+import '../../sync/presentation/sync_conflicts_screen.dart';
 
 final appRouterProvider = Provider((ref) {
   return GoRouter(
@@ -35,6 +37,16 @@ final appRouterProvider = Provider((ref) {
         path: '/roles',
         name: 'roles',
         builder: (context, state) => const RolePermissionScreen(),
+      ),
+      GoRoute(
+        path: '/sync',
+        name: 'syncStatus',
+        builder: (context, state) => const SyncStatusScreen(),
+      ),
+      GoRoute(
+        path: '/sync/conflicts',
+        name: 'syncConflicts',
+        builder: (context, state) => const SyncConflictsScreen(),
       ),
     ],
   );

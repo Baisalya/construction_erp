@@ -1,25 +1,19 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/domain/write_context.dart';
 import '../../core/permissions/permission_key.dart';
 import '../../core/permissions/repository_write_guard.dart';
 import '../../database/local_database.dart';
-import '../../database/schema/app_schema_sql.dart';
+import '../../sync/data/local_delta_writer.dart';
 
 class LocalRecordMaintenanceRepository {
   LocalRecordMaintenanceRepository(
       {required this.database,
-      RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
-      Uuid uuid = const Uuid()})
-      : _writeGuard = writeGuard,
-        _uuid = uuid;
+      RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard()})
+      : _writeGuard = writeGuard;
 
   final ConstructionDatabase database;
   final RepositoryWriteGuard _writeGuard;
-  final Uuid _uuid;
 
   static const _deletable = {
     'material_purchases',
@@ -35,6 +29,17 @@ class LocalRecordMaintenanceRepository {
     }
     await database.ensureSchema();
     await database.transaction(() async {
+      final childItemIds = table == 'material_purchases'
+          ? (await database.customSelect('''
+              SELECT id FROM material_purchase_items
+              WHERE purchase_id = ? AND company_id = ? AND is_deleted = 0
+            ''', variables: [
+              Variable<String>(id),
+              Variable<String>(context.companyId),
+            ]).get())
+              .map((row) => row.read<String>('id'))
+              .toList(growable: false)
+          : const <String>[];
       final changed = await database.customUpdate('''
         UPDATE $table SET is_deleted = 1, updated_at = ?,
           updated_by_user_id = ?, sync_status = 'pendingUpload',
@@ -59,27 +64,25 @@ class LocalRecordMaintenanceRepository {
           Variable<String>(id),
           Variable<String>(context.companyId),
         ]);
+        for (final childId in childItemIds) {
+          await LocalDeltaWriter.queue(
+            database: database,
+            context: context,
+            createdAt: context.timestamp,
+            entityType: 'material_purchase_items',
+            entityId: childId,
+            operation: 'delete',
+          );
+        }
       }
-      await database.customStatement('''
-        INSERT INTO sync_queue (
-          id, company_id, created_at, updated_at, created_by_user_id,
-          updated_by_user_id, is_deleted, sync_status, version, entity_type,
-          entity_id, operation, payload_json, device_id, schema_version,
-          status, error_message
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pendingUpload', 1, ?, ?, 'delete', ?, ?, ?, 'pendingUpload', NULL);
-      ''', [
-        Variable<String>(_uuid.v4()),
-        Variable<String>(context.companyId),
-        Variable<int>(context.timestamp),
-        Variable<int>(context.timestamp),
-        Variable<String>(context.userId),
-        Variable<String>(context.userId),
-        Variable<String>(table),
-        Variable<String>(id),
-        Variable<String>(jsonEncode({'id': id, ...context.toAuditJson()})),
-        Variable<String>(context.deviceId),
-        Variable<int>(AppSchemaSql.schemaVersion),
-      ]);
+      await LocalDeltaWriter.queue(
+        database: database,
+        context: context,
+        createdAt: context.timestamp,
+        entityType: table,
+        entityId: id,
+        operation: 'delete',
+      );
     });
   }
 

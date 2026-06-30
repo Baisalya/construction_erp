@@ -1,3 +1,35 @@
 #include "resource.h"
+#include <windows.h>
 
 IDI_APP_ICON ICON "resources\\app_icon.ico"
+
+#define VERSION_AS_NUMBER 1,0,0,9
+#define VERSION_AS_STRING "1.0.0.9"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION VERSION_AS_NUMBER
+ PRODUCTVERSION VERSION_AS_NUMBER
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+ FILEFLAGS 0x0L
+ FILEOS VOS__WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904e4"
+        BEGIN
+            VALUE "CompanyName", "Construction ERP"
+            VALUE "FileDescription", "Construction ERP"
+            VALUE "FileVersion", VERSION_AS_STRING
+            VALUE "InternalName", "construction_erp"
+            VALUE "OriginalFilename", "construction_erp.exe"
+            VALUE "ProductName", "Construction ERP"
+            VALUE "ProductVersion", VERSION_AS_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1252
+    END
+END

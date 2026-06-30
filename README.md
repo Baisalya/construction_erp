@@ -1,57 +1,41 @@
-# Construction ERP — Phase 5
+# Construction ERP
 
-Local-first Flutter Construction ERP scaffold for Android and Windows.
+Production-oriented, local-first Flutter application for Android and Windows.
 
-This ZIP contains Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5 foundation.
+For step-by-step instructions for owners and staff, read [USER_MANUAL.md](USER_MANUAL.md).
 
-## Phase 5 focus
+## Included modules
 
-Billing, GST, estimate and profit/loss UI.
+- Tender applications, bidder profiles, expenses, documents, and conversion to projects
+- Projects, agreement calculation, deductions, milestones, and site diary
+- Material, supplier payments, labor, machinery, fuel, repairs, and other expenses
+- Estimates, running/final bills, receipts, GST, and profit/loss reports
+- Owner/staff roles, project assignments, and permission enforcement
+- Firebase authentication and company/staff metadata
+- Delta sync, duplicate protection, conflict review, local backup/restore, PDF, and Excel export
 
-## Included
+SQLite/Drift is the source of truth for business records. Firebase is limited to authentication, company/staff metadata, permissions, device metadata, and sync changes.
 
-- Clean Flutter structure.
-- Android + Windows folders.
-- Drift/SQLite local schema foundation.
-- Firebase-ready company/staff/sync metadata structure.
-- Riverpod providers.
-- GoRouter app entry.
-- Responsive shell for Android and Windows.
-- Tender module foundation and tender-to-project conversion from Phase 2.
-- Project agreement calculator from Phase 3.
-- Material/Labor/Machinery/Fuel/Repair logic from Phase 4.
-- Billing module activated in Phase 5.
-- Reports module activated in Phase 5.
-- Estimate records and estimate item totals.
-- Running/final/advance bill records.
-- GST input/output entries.
-- Bill receipts and pending receivable update.
-- Project profit/loss summary from ledger records.
-- Local sync queue delta creation for Phase 5 writes.
-- Unit tests for Phase 5 calculations.
+## Release identity
 
-## Important architecture rules kept
+- App name: `Construction ERP`
+- Dart package: `construction_erp`
+- Version: `1.0.0+9`
+- Android application ID: `com.baishalya.construction_erp`
+- Windows executable: `construction_erp.exe`
 
-- SQLite/Drift local database remains the source of truth.
-- Firebase is still only prepared for auth/company/staff/sync metadata.
-- No direct Firebase query inside UI.
-- No direct database business logic inside widgets.
-- Billing calculations live in repository/domain service classes.
-- Money is stored as integer paise.
-- Decimal quantities are stored safely as text.
+The bundled icons are release-safe placeholders and can be replaced with final company artwork without changing app logic.
 
-## Verify locally
-
-This sandbox does not include Flutter/Dart, so run these locally:
+## Verify
 
 ```bash
+flutter clean
 flutter pub get
 flutter analyze
 flutter test
-flutter run -d windows
-flutter run -d android
+flutter build apk --release
+flutter build appbundle --release
+flutter build windows --release
 ```
 
-## Next phase
-
-Phase 6 should add Firebase Auth, company setup, staff management, roles and permissions.
+Android store publishing requires the private release keystore owned by the publisher. Copy `android/key.properties.example` to `android/key.properties`, fill in the private values, and run the release builds again. The real properties and keystore files are ignored by Git and must not be placed in the ZIP.

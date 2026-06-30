@@ -1,6 +1,7 @@
 {
   "firestore": {
-    "rules": "docs/firebase/firestore.rules"
+    "rules": "docs/firebase/firestore.rules",
+    "indexes": "docs/firebase/firestore.indexes.json"
   },
   "flutter": {
     "platforms": {

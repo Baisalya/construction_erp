@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
+import '../../../shared/formatters/positive_decimal_input_formatter.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../project/domain/project_record.dart';
 import '../../work/presentation/work_project_provider.dart';
 import '../domain/labor_records.dart';
@@ -96,54 +98,69 @@ class _LaborPageState extends ConsumerState<LaborPage> {
                         padding: EdgeInsets.all(24),
                         child: CircularProgressIndicator())),
                 error: (error, stackTrace) =>
-                    _MessageCard(message: error.toString()),
+                    _MessageCard(message: friendlyErrorMessage(error)),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => _MessageCard(message: error.toString()),
+        error: (error, stackTrace) =>
+            _MessageCard(message: friendlyErrorMessage(error)),
       ),
     );
   }
 
   Future<void> _saveLaborEntry(String projectId) async {
-    final repository = ref.read(laborRepositoryProvider);
-    final writeContext = ref.read(localWriteContextProvider);
-    final laborId = await repository.createLaborer(
-      LaborerDraft(
-          name: _nameController.text,
-          defaultRate: Money.parseRupees(_rateController.text)),
-      writeContext,
-    );
-    await repository.createWorkEntry(
-      LaborWorkEntryDraft(
-        projectId: projectId,
-        laborId: laborId,
-        workDate: writeContext.timestamp,
-        workDescription: _descriptionController.text,
-        workType: _workType,
-        quantity: DecimalQuantity.parse(_quantityController.text),
-        unit: switch (_workType) {
-          LaborWorkType.daywise => 'day',
-          LaborWorkType.hourly => 'hour',
-          LaborWorkType.piecework => 'piece',
-          LaborWorkType.thika => 'job',
-          LaborWorkType.custom => 'custom',
-        },
-        rate: Money.parseRupees(_rateController.text),
-        paidAmount: Money.parseRupees(_paidController.text),
-      ),
-      writeContext,
-    );
-    ref.invalidate(laborWorkEntriesViewProvider(projectId));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Labor work entry saved locally.')));
+    try {
+      final repository = ref.read(laborRepositoryProvider);
+      final writeContext = ref.read(localWriteContextProvider);
+      final laborId = await repository.createLaborer(
+        LaborerDraft(
+            name: _nameController.text,
+            defaultRate: Money.parseRupees(_rateController.text)),
+        writeContext,
+      );
+      await repository.createWorkEntry(
+        LaborWorkEntryDraft(
+          projectId: projectId,
+          laborId: laborId,
+          workDate: writeContext.timestamp,
+          workDescription: _descriptionController.text,
+          workType: _workType,
+          quantity: DecimalQuantity.parse(_quantityController.text),
+          unit: switch (_workType) {
+            LaborWorkType.daywise => 'day',
+            LaborWorkType.hourly => 'hour',
+            LaborWorkType.piecework => 'piece',
+            LaborWorkType.thika => 'job',
+            LaborWorkType.custom => 'custom',
+          },
+          rate: Money.parseRupees(_rateController.text),
+          paidAmount: Money.parseRupees(_paidController.text),
+        ),
+        writeContext,
+      );
+      ref.invalidate(laborWorkEntriesViewProvider(projectId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Labor work saved successfully.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+      }
     }
   }
 
   Future<void> _deleteEntry(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete labor entry?',
+      message: 'This labor cost will be removed from project totals.',
+    )) {
+      return;
+    }
     await ref.read(localRecordMaintenanceProvider).softDelete(
         'labor_work_entries', id, ref.read(localWriteContextProvider));
     ref.invalidate(laborWorkEntriesViewProvider(projectId));
@@ -233,10 +250,22 @@ class _LaborQuickEntry extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-                onPressed: onSave,
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                nameController,
+                quantityController,
+                rateController,
+                paidController,
+              ]),
+              builder: (context, _) => FilledButton.icon(
+                onPressed: _validLaborEntry(nameController, quantityController,
+                        rateController, paidController)
+                    ? onSave
+                    : null,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save labor work')),
+                label: const Text('Save labor work'),
+              ),
+            ),
           ],
         ),
       ),
@@ -255,8 +284,43 @@ class _LaborEntryList extends StatelessWidget {
     if (entries.isEmpty) {
       return const _MessageCard(message: 'No labor work entry yet.');
     }
-    return Column(
-      children: [
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 800) {
+        return Card(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Work type')),
+                DataColumn(label: Text('Quantity')),
+                DataColumn(label: Text('Total')),
+                DataColumn(label: Text('Paid')),
+                DataColumn(label: Text('Pending')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: [
+                for (final entry in entries)
+                  DataRow(cells: [
+                    DataCell(Text(entry.workType.value)),
+                    DataCell(Text('${entry.quantity} ${entry.unit}')),
+                    DataCell(Text(entry.totalAmount.format())),
+                    DataCell(Text(entry.paidAmount.format())),
+                    DataCell(Text(entry.pendingAmount.format())),
+                    DataCell(Text(paymentStatusLabel(
+                        paid: entry.paidAmount, pending: entry.pendingAmount))),
+                    DataCell(IconButton(
+                      tooltip: 'Delete work entry',
+                      onPressed: () => onDelete(entry.id),
+                      icon: const Icon(Icons.delete_outline),
+                    )),
+                  ]),
+              ],
+            ),
+          ),
+        );
+      }
+      return Column(children: [
         for (final entry in entries)
           Card(
             child: ListTile(
@@ -264,15 +328,16 @@ class _LaborEntryList extends StatelessWidget {
               title: Text(
                   '${entry.workType.value} • ${entry.quantity} ${entry.unit}'),
               subtitle: Text(
-                  'Total ${entry.totalAmount.format()} • Pending ${entry.pendingAmount.format()} • ${entry.paymentStatus.value}'),
+                  'Total ${entry.totalAmount.format()} • Paid ${entry.paidAmount.format()} • Pending ${entry.pendingAmount.format()}\n${paymentStatusLabel(paid: entry.paidAmount, pending: entry.pendingAmount)}'),
+              isThreeLine: true,
               trailing: IconButton(
                   tooltip: 'Delete work entry',
                   onPressed: () => onDelete(entry.id),
                   icon: const Icon(Icons.delete_outline)),
             ),
           ),
-      ],
-    );
+      ]);
+    });
   }
 }
 
@@ -284,12 +349,40 @@ class _Input extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final numeric = label.contains('₹') || label.contains('qty');
     return SizedBox(
         width: 190,
         child: TextField(
             controller: controller,
+            keyboardType: numeric
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.text,
+            inputFormatters:
+                numeric ? const [PositiveDecimalInputFormatter()] : null,
             decoration: const InputDecoration(border: OutlineInputBorder())
                 .copyWith(labelText: label)));
+  }
+}
+
+bool _validLaborEntry(
+  TextEditingController name,
+  TextEditingController quantity,
+  TextEditingController rate,
+  TextEditingController paid,
+) {
+  if (name.text.trim().isEmpty) return false;
+  try {
+    final parsedQuantity = DecimalQuantity.parse(quantity.text);
+    final parsedRate = Money.parseRupees(rate.text);
+    final parsedPaid = Money.parseRupees(paid.text);
+    final total = parsedQuantity.multiplyMoney(parsedRate);
+    return !parsedQuantity.isZero &&
+        !parsedQuantity.isNegative &&
+        !parsedRate.isNegative &&
+        !parsedPaid.isNegative &&
+        parsedPaid.paise <= total.paise;
+  } catch (_) {
+    return false;
   }
 }
 

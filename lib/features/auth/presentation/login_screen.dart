@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../shared/presentation/app_feedback.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_providers.dart';
@@ -182,7 +184,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on AuthFailure catch (failure) {
       setState(() => _error = failure.message);
     } catch (error) {
-      setState(() => _error = '$error');
+      setState(() => _error = friendlyErrorMessage(error,
+          fallback: 'Sign-in could not be completed. Please try again.'));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -214,7 +217,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '$error');
+        setState(() => _error = friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -252,7 +255,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on AuthFailure catch (failure) {
       if (mounted) setState(() => _error = failure.message);
     } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -431,7 +434,7 @@ class _GoogleLinkDialogContentState extends State<_GoogleLinkDialogContent> {
                   } catch (error) {
                     setState(() {
                       _saving = false;
-                      _dialogError = '$error';
+                      _dialogError = friendlyErrorMessage(error);
                     });
                   }
                 },
@@ -464,7 +467,7 @@ class _GoogleLinkDialogContentState extends State<_GoogleLinkDialogContent> {
                   } catch (error) {
                     setState(() {
                       _saving = false;
-                      _dialogError = '$error';
+                      _dialogError = friendlyErrorMessage(error);
                     });
                   }
                 },

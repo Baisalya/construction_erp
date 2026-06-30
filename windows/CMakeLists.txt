@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
-project(construction_erp_phase5 LANGUAGES CXX)
+project(construction_erp LANGUAGES CXX)
 
 # CMake 4 removed implicit compatibility with policies older than 3.5.
 # FlutterFire's bundled Firebase C++ SDK still declares an older minimum, so
 # provide the compatibility floor before its generated subdirectory is loaded.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-set(BINARY_NAME "construction_erp_phase5")
+set(BINARY_NAME "construction_erp")
 set(APPLICATION_ID "com.baishalya.construction_erp")
 set(PROJECT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 

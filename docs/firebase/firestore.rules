@@ -42,6 +42,150 @@ service cloud.firestore {
       return isOwner(companyId) || hasPermission(companyId, 'staff.manage');
     }
 
+    function isAdmin(companyId) {
+      return activeStaff(companyId)
+        && get(currentStaffPath(companyId)).data.roleId == 'admin';
+    }
+
+    function isProjectEntity(entity) {
+      return entity in [
+        'project_staff_assignments', 'projects',
+        'project_agreement_deductions', 'project_milestones', 'work_days',
+        'material_purchases', 'material_purchase_items', 'supplier_payments',
+        'fuel_entries', 'labor_work_entries', 'labor_payments',
+        'labor_advances', 'machine_usage_entries',
+        'machine_rental_payments', 'machine_repair_entries',
+        'project_estimates', 'project_estimate_items', 'project_bills',
+        'project_bill_receipts', 'gst_entries', 'project_expenses'
+      ];
+    }
+
+    function isAllowedDeltaEntity(entity) {
+      return entity in [
+        'companies', 'staff_users', 'roles', 'permissions',
+        'project_staff_assignments', 'bidder_profiles', 'tenders',
+        'tender_expenses', 'tender_documents', 'projects',
+        'project_agreement_deductions', 'project_milestones', 'work_days',
+        'suppliers', 'material_purchases', 'material_purchase_items',
+        'supplier_payments', 'fuel_types', 'fuel_entries', 'laborers',
+        'labor_work_entries', 'labor_payments', 'labor_advances', 'machines',
+        'machine_usage_entries', 'machine_rental_payments',
+        'machine_repair_entries', 'project_estimates',
+        'project_estimate_items', 'project_bills', 'project_bill_receipts',
+        'gst_entries', 'project_expenses'
+      ];
+    }
+
+    function deltaShapeIsValid(companyId, deltaId) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'deltaId', 'companyId', 'entityType', 'entityId', 'operation',
+          'payloadJson', 'baseVersion', 'newVersion', 'createdAt',
+          'createdByUserId', 'deviceId', 'schemaVersion', 'status', 'projectId'
+        ])
+        && data.deltaId == deltaId
+        && data.companyId == companyId
+        && isAllowedDeltaEntity(data.entityType)
+        && data.createdByUserId == request.auth.uid
+        && data.operation in ['insert', 'update', 'delete']
+        && data.status == 'uploaded'
+        && data.payloadJson is string
+        && data.baseVersion is int
+        && data.newVersion is int
+        && data.newVersion > data.baseVersion
+        && (
+          (isProjectEntity(data.entityType)
+            && data.keys().hasAll(['projectId'])
+            && data.projectId is string)
+          || (!isProjectEntity(data.entityType)
+            && !data.keys().hasAny(['projectId']))
+        );
+    }
+
+    function assignedProjectAllows(companyId) {
+      let data = request.resource.data;
+      let staff = get(currentStaffPath(companyId)).data;
+      return !data.keys().hasAny(['projectId'])
+        || staff.assignedProjectIds.hasAny([data.projectId]);
+    }
+
+    function permittedDeltaType(companyId) {
+      let entity = request.resource.data.entityType;
+      let operation = request.resource.data.operation;
+      return (
+          entity in ['bidder_profiles', 'tenders', 'tender_expenses', 'tender_documents']
+          && hasPermission(companyId,
+            operation == 'insert' ? 'tender.create' :
+            operation == 'delete' ? 'tender.delete' : 'tender.edit')
+        ) || (
+          entity == 'projects'
+          && hasPermission(companyId,
+            operation == 'insert' ? 'project.create' :
+            operation == 'delete' ? 'project.delete' : 'project.edit')
+        ) || (
+          entity in ['project_agreement_deductions', 'project_milestones', 'work_days', 'project_expenses']
+          && hasPermission(companyId, 'project.edit')
+        ) || (
+          entity in ['suppliers', 'material_purchases', 'material_purchase_items', 'supplier_payments']
+          && hasPermission(companyId, 'material.entry')
+        ) || (
+          entity in ['laborers', 'labor_work_entries', 'labor_payments', 'labor_advances']
+          && hasPermission(companyId, 'labor.entry')
+        ) || (
+          entity in ['machines', 'machine_usage_entries', 'machine_rental_payments', 'machine_repair_entries', 'fuel_types', 'fuel_entries']
+          && hasPermission(companyId, 'machinery.entry')
+        ) || (
+          entity in ['project_estimates', 'project_estimate_items', 'project_bills', 'project_bill_receipts']
+          && hasPermission(companyId, 'billing.entry')
+        ) || (entity == 'gst_entries' && hasPermission(companyId, 'reports.gst'));
+    }
+
+    function canReadDeltaEntity(companyId) {
+      let entity = resource.data.entityType;
+      return (
+          entity in ['bidder_profiles', 'tenders', 'tender_expenses', 'tender_documents']
+          && (hasPermission(companyId, 'tender.create')
+            || hasPermission(companyId, 'tender.edit')
+            || hasPermission(companyId, 'tender.delete'))
+        ) || (
+          entity == 'projects'
+          && (hasPermission(companyId, 'project.create')
+            || hasPermission(companyId, 'project.edit')
+            || hasPermission(companyId, 'project.delete'))
+        ) || (
+          entity in ['project_agreement_deductions', 'project_milestones', 'work_days', 'project_expenses']
+          && hasPermission(companyId, 'project.edit')
+        ) || (
+          entity in ['suppliers', 'material_purchases', 'material_purchase_items', 'supplier_payments']
+          && hasPermission(companyId, 'material.entry')
+        ) || (
+          entity in ['laborers', 'labor_work_entries', 'labor_payments', 'labor_advances']
+          && hasPermission(companyId, 'labor.entry')
+        ) || (
+          entity in ['machines', 'machine_usage_entries', 'machine_rental_payments', 'machine_repair_entries', 'fuel_types', 'fuel_entries']
+          && hasPermission(companyId, 'machinery.entry')
+        ) || (
+          entity in ['project_estimates', 'project_estimate_items', 'project_bills', 'project_bill_receipts']
+          && hasPermission(companyId, 'billing.entry')
+        ) || (entity == 'gst_entries' && hasPermission(companyId, 'reports.gst'));
+    }
+
+    function assignedProjectAllowsRead(companyId) {
+      let staff = get(currentStaffPath(companyId)).data;
+      return !resource.data.keys().hasAny(['projectId'])
+        || staff.assignedProjectIds.hasAny([resource.data.projectId]);
+    }
+
+    function canReadDelta(companyId) {
+      let isProjectDelta = resource.data.keys().hasAny(['projectId']);
+      return activeStaff(companyId)
+        && assignedProjectAllowsRead(companyId)
+        && (
+          canReadDeltaEntity(companyId)
+          || (isProjectDelta && hasPermission(companyId, 'project.view_only'))
+        );
+    }
+
     function invitePath(companyId, inviteCode) {
       return /databases/$(database)/documents/companies/$(companyId)/invitations/$(inviteCode);
     }
@@ -128,9 +272,32 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // Phase 7 owns sync deltas. Business data remains SQLite-only in Phase 6.
+      // Firestore is a Phase 7 transport log only. No business entity is stored
+      // as a normal Firestore document.
       match /sync_deltas/{deltaId} {
-        allow read, write: if false;
+        allow read: if isOwner(companyId) || isAdmin(companyId)
+          || canReadDelta(companyId);
+        allow create: if activeStaff(companyId)
+          && deltaShapeIsValid(companyId, deltaId)
+          && (
+            isOwner(companyId)
+            || isAdmin(companyId)
+            || (permittedDeltaType(companyId) && assignedProjectAllows(companyId))
+          );
+        allow update: if activeStaff(companyId)
+          && resource.data.createdByUserId == request.auth.uid
+          && request.resource.data.createdByUserId == resource.data.createdByUserId
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.entityType == resource.data.entityType
+          && request.resource.data.entityId == resource.data.entityId
+          && request.resource.data.deviceId == resource.data.deviceId
+          && deltaShapeIsValid(companyId, deltaId)
+          && (
+            isOwner(companyId)
+            || isAdmin(companyId)
+            || (permittedDeltaType(companyId) && assignedProjectAllows(companyId))
+          );
+        allow delete: if false;
       }
     }
 

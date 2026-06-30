@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
+import '../../../shared/formatters/positive_decimal_input_formatter.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../project/domain/project_record.dart';
 import '../domain/work_records.dart';
 import 'work_project_provider.dart';
@@ -68,7 +70,8 @@ class _WorkPageState extends ConsumerState<WorkPage> {
     return SafeArea(
       child: projects.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text(error.toString())),
+        error: (error, stack) =>
+            Center(child: Text(friendlyErrorMessage(error))),
         data: (items) {
           if (items.isEmpty) {
             return const Center(
@@ -113,7 +116,7 @@ class _WorkPageState extends ConsumerState<WorkPage> {
               const SizedBox(height: 14),
               days.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (error, stack) => Text(error.toString()),
+                error: (error, stack) => Text(friendlyErrorMessage(error)),
                 data: (data) => _RecordCard(
                   title: 'Site diary',
                   emptyText: 'No work day recorded for this project.',
@@ -135,7 +138,7 @@ class _WorkPageState extends ConsumerState<WorkPage> {
               const SizedBox(height: 14),
               expenses.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (error, stack) => Text(error.toString()),
+                error: (error, stack) => Text(friendlyErrorMessage(error)),
                 data: (data) => _RecordCard(
                   title: 'Other project expenses',
                   emptyText: 'No other expense recorded for this project.',
@@ -145,7 +148,7 @@ class _WorkPageState extends ConsumerState<WorkPage> {
                         leading: const Icon(Icons.payments_outlined),
                         title: Text(item.description ?? item.category.label),
                         subtitle: Text(
-                            '${item.category.label} • ${_date(item.expenseDate)}\nPaid ${item.paidAmount.format()} • Pending ${item.pendingAmount.format()}'),
+                            '${item.category.label} • ${_date(item.expenseDate)}\nTotal ${item.amount.format()} • Paid ${item.paidAmount.format()} • Pending ${item.pendingAmount.format()}\n${paymentStatusLabel(paid: item.paidAmount, pending: item.pendingAmount)}'),
                         isThreeLine: true,
                         trailing: _Actions(
                             onEdit: () => _editExpense(item),
@@ -234,7 +237,20 @@ class _WorkPageState extends ConsumerState<WorkPage> {
                       child: _Field(
                           controller: _paid, label: 'Paid ₹', number: true))
                 ]),
-                _Field(controller: _paymentMode, label: 'Payment mode'),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: _paymentMode.text,
+                  decoration: const InputDecoration(labelText: 'Payment mode'),
+                  items: const [
+                    DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                    DropdownMenuItem(
+                        value: 'bank', child: Text('Bank transfer')),
+                    DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                    DropdownMenuItem(value: 'cheque', child: Text('Cheque')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (value) => _paymentMode.text = value ?? 'cash',
+                ),
                 _Field(controller: _expenseNotes, label: 'Notes'),
                 const SizedBox(height: 12),
                 Row(children: [
@@ -273,7 +289,7 @@ class _WorkPageState extends ConsumerState<WorkPage> {
       ref.invalidate(workDaysProvider(projectId));
       _clearEditors();
     } catch (error) {
-      _message(error.toString());
+      _message(friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -301,13 +317,20 @@ class _WorkPageState extends ConsumerState<WorkPage> {
       ref.invalidate(projectExpensesProvider(projectId));
       _clearEditors();
     } catch (error) {
-      _message(error.toString());
+      _message(friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _deleteWorkDay(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete site diary?',
+      message: 'This site diary entry will be removed.',
+    )) {
+      return;
+    }
     await ref
         .read(workRepositoryProvider)
         .deleteWorkDay(id, ref.read(localWriteContextProvider));
@@ -315,6 +338,13 @@ class _WorkPageState extends ConsumerState<WorkPage> {
   }
 
   Future<void> _deleteExpense(String id, String projectId) async {
+    if (!await confirmDestructiveAction(
+      context,
+      title: 'Delete project expense?',
+      message: 'This expense will be removed from project totals.',
+    )) {
+      return;
+    }
     await ref
         .read(workRepositoryProvider)
         .deleteExpense(id, ref.read(localWriteContextProvider));
@@ -423,6 +453,8 @@ class _Field extends StatelessWidget {
           keyboardType: number
               ? const TextInputType.numberWithOptions(decimal: true)
               : null,
+          inputFormatters:
+              number ? const [PositiveDecimalInputFormatter()] : null,
           decoration: InputDecoration(
               labelText: label, border: const OutlineInputBorder())));
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../project/domain/project_record.dart';
 import '../domain/billing_records.dart';
 
@@ -58,7 +59,8 @@ class BillingPage extends ConsumerWidget {
           summary.when(
             data: (data) => _SummaryGrid(summary: data),
             loading: () => const LinearProgressIndicator(),
-            error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+            error: (error, stackTrace) =>
+                _ErrorCard(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           projects.when(
@@ -68,28 +70,32 @@ class BillingPage extends ConsumerWidget {
               loading: () => _Forms(
                   projects: projectData, bills: const <ProjectBillRecord>[]),
               error: (error, stackTrace) =>
-                  _ErrorCard(message: error.toString()),
+                  _ErrorCard(message: friendlyErrorMessage(error)),
             ),
             loading: () => const _InfoCard(text: 'Loading projects...'),
-            error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+            error: (error, stackTrace) =>
+                _ErrorCard(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           estimates.when(
             data: (data) => _EstimateList(estimates: data),
             loading: () => const _InfoCard(text: 'Loading estimates...'),
-            error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+            error: (error, stackTrace) =>
+                _ErrorCard(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           bills.when(
             data: (data) => _BillList(bills: data),
             loading: () => const _InfoCard(text: 'Loading bills...'),
-            error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+            error: (error, stackTrace) =>
+                _ErrorCard(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           gstEntries.when(
             data: (data) => _GstList(entries: data),
             loading: () => const _InfoCard(text: 'Loading GST entries...'),
-            error: (error, stackTrace) => _ErrorCard(message: error.toString()),
+            error: (error, stackTrace) =>
+                _ErrorCard(message: friendlyErrorMessage(error)),
           ),
         ],
       ),
@@ -125,7 +131,7 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-            const Chip(label: Text('Phase 5')),
+            const Chip(label: Text('Billing and GST')),
           ],
         ),
       ),
@@ -199,8 +205,8 @@ class _Forms extends StatelessWidget {
             ? const ListTile(
                 leading: Icon(Icons.info_outline),
                 title: Text('Create a project first'),
-                subtitle: Text(
-                    'Estimate and bill entries need a project from Phase 3.'),
+                subtitle:
+                    Text('Create a project before adding estimates or bills.'),
               )
             : Column(
                 children: [
@@ -348,7 +354,7 @@ class _EstimateTileState extends ConsumerState<_EstimateTile> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -482,7 +488,7 @@ class _BillTileState extends ConsumerState<_BillTile> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -601,7 +607,7 @@ class _ReceiptTileState extends ConsumerState<_ReceiptTile> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -712,7 +718,7 @@ class _GstTileState extends ConsumerState<_GstTile> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_module.dart';
 import '../../core/permissions/permission_key.dart';
@@ -13,10 +14,11 @@ import '../../features/material/presentation/material_page.dart' as material_ui;
 import '../../features/project/presentation/project_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
 import '../../features/staff/presentation/staff_page.dart';
+import '../../features/settings/presentation/settings_page.dart';
 import '../../features/tender/presentation/tender_page.dart';
 import '../../features/work/presentation/work_page.dart';
 import '../../shared/responsive/responsive_breakpoints.dart';
-import 'module_placeholder_page.dart';
+import 'app_feedback.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -26,6 +28,7 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   AppModule _selectedModule = AppModule.dashboard;
 
   @override
@@ -58,27 +61,32 @@ class _AppShellState extends ConsumerState<AppShell> {
                   selectedModule: _selectedModule,
                   onSelected: _selectModule,
                   onRefresh: _refreshAccess,
+                  onSync: () => context.push('/sync'),
                   onSignOut: _signOut,
                 ),
                 const VerticalDivider(width: 1),
-                Expanded(child: content),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1440),
+                      child: content,
+                    ),
+                  ),
+                ),
               ],
             ),
           );
         }
         return Scaffold(
+          key: _scaffoldKey,
           appBar: AppBar(
             title: Text(_selectedModule.title),
             actions: [
               IconButton(
-                tooltip: 'Refresh access',
-                onPressed: _refreshAccess,
-                icon: const Icon(Icons.cloud_sync_outlined),
-              ),
-              IconButton(
-                tooltip: 'Sign out',
-                onPressed: _signOut,
-                icon: const Icon(Icons.logout_outlined),
+                tooltip: 'Sync status',
+                onPressed: () => context.push('/sync'),
+                icon: const Icon(Icons.sync),
               ),
             ],
           ),
@@ -89,8 +97,26 @@ class _AppShellState extends ConsumerState<AppShell> {
               Navigator.of(context).pop();
               _selectModule(module);
             },
+            onSync: () {
+              Navigator.of(context).pop();
+              context.push('/sync');
+            },
+            onRefresh: () {
+              Navigator.of(context).pop();
+              _refreshAccess();
+            },
+            onSignOut: () {
+              Navigator.of(context).pop();
+              _signOut();
+            },
           ),
           body: content,
+          bottomNavigationBar: _MobileNavigationBar(
+            modules: modules,
+            selectedModule: _selectedModule,
+            onSelected: _selectModule,
+            onMore: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
         );
       },
     );
@@ -142,7 +168,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       AppModule.billing => const BillingPage(),
       AppModule.reports => const ReportsPage(),
       AppModule.staff => const StaffPage(),
-      _ => ModulePlaceholderPage(module: module),
+      AppModule.settings => const SettingsPage(),
     };
   }
 
@@ -165,7 +191,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Using saved offline access: $error')),
+          SnackBar(
+              content: Text(friendlyErrorMessage(error,
+                  fallback: 'Using your last saved access while offline.'))),
         );
       }
     }
@@ -185,6 +213,7 @@ class _DesktopSidebar extends StatelessWidget {
     required this.selectedModule,
     required this.onSelected,
     required this.onRefresh,
+    required this.onSync,
     required this.onSignOut,
   });
 
@@ -192,6 +221,7 @@ class _DesktopSidebar extends StatelessWidget {
   final AppModule selectedModule;
   final ValueChanged<AppModule> onSelected;
   final VoidCallback onRefresh;
+  final VoidCallback onSync;
   final VoidCallback onSignOut;
 
   @override
@@ -224,7 +254,7 @@ class _DesktopSidebar extends StatelessWidget {
                           style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        Text('Local-first Phase 6',
+                        Text('Projects, costs and billing',
                             style: theme.textTheme.bodySmall),
                       ],
                     ),
@@ -251,6 +281,11 @@ class _DesktopSidebar extends StatelessWidget {
             ),
             const Divider(height: 1),
             ListTile(
+              leading: const Icon(Icons.sync),
+              title: const Text('Sync status'),
+              onTap: onSync,
+            ),
+            ListTile(
               leading: const Icon(Icons.cloud_sync_outlined),
               title: const Text('Refresh access'),
               onTap: onRefresh,
@@ -272,11 +307,17 @@ class _MobileDrawer extends StatelessWidget {
     required this.modules,
     required this.selectedModule,
     required this.onSelected,
+    required this.onSync,
+    required this.onRefresh,
+    required this.onSignOut,
   });
 
   final List<AppModule> modules;
   final AppModule selectedModule;
   final ValueChanged<AppModule> onSelected;
+  final VoidCallback onSync;
+  final VoidCallback onRefresh;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -298,9 +339,74 @@ class _MobileDrawer extends StatelessWidget {
                 selected: selectedModule == module,
                 onTap: () => onSelected(module),
               ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.sync),
+              title: const Text('Sync status'),
+              onTap: onSync,
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_sync_outlined),
+              title: const Text('Refresh access'),
+              onTap: onRefresh,
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout_outlined),
+              title: const Text('Sign out'),
+              onTap: onSignOut,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MobileNavigationBar extends StatelessWidget {
+  const _MobileNavigationBar({
+    required this.modules,
+    required this.selectedModule,
+    required this.onSelected,
+    required this.onMore,
+  });
+
+  final List<AppModule> modules;
+  final AppModule selectedModule;
+  final ValueChanged<AppModule> onSelected;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    const preferred = <AppModule>[
+      AppModule.dashboard,
+      AppModule.tender,
+      AppModule.project,
+      AppModule.work,
+    ];
+    final primary = preferred.where(modules.contains).toList(growable: false);
+    final selected = primary.indexOf(selectedModule);
+    return NavigationBar(
+      selectedIndex: selected < 0 ? primary.length : selected,
+      onDestinationSelected: (index) {
+        if (index == primary.length) {
+          onMore();
+        } else {
+          onSelected(primary[index]);
+        }
+      },
+      destinations: [
+        for (final module in primary)
+          NavigationDestination(
+            icon: Icon(module.icon),
+            selectedIcon: Icon(module.icon),
+            label: module.title,
+          ),
+        const NavigationDestination(
+          icon: Icon(Icons.menu),
+          selectedIcon: Icon(Icons.menu_open),
+          label: 'More',
+        ),
+      ],
     );
   }
 }
@@ -324,7 +430,7 @@ class _ModuleLocked extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Your role does not include ${permission.storageKey}. Ask the owner or admin to update access.',
+              'Your role does not include access to this area. Ask the owner or admin to update it.',
               textAlign: TextAlign.center,
             ),
           ],

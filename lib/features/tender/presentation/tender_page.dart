@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/value_objects/money.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../domain/bidder_profile.dart';
 import '../domain/tender_application.dart';
 import '../domain/tender_document.dart';
@@ -49,7 +50,7 @@ class TenderPage extends ConsumerWidget {
             data: (data) => _TenderStatsCards(stats: data),
             loading: () => const LinearProgressIndicator(),
             error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
+                _InlineError(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           profiles.when(
@@ -59,7 +60,7 @@ class TenderPage extends ConsumerWidget {
                     padding: EdgeInsets.all(18),
                     child: Text('Loading bidder profiles...'))),
             error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
+                _InlineError(message: friendlyErrorMessage(error)),
           ),
           const SizedBox(height: 14),
           tenders.when(
@@ -69,7 +70,7 @@ class TenderPage extends ConsumerWidget {
                     padding: EdgeInsets.all(18),
                     child: Text('Loading tenders...'))),
             error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
+                _InlineError(message: friendlyErrorMessage(error)),
           ),
         ],
       ),
@@ -106,7 +107,7 @@ class _TenderHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const Chip(label: Text('Phase 4')),
+            const Chip(label: Text('Tender management')),
           ],
         ),
       ),
@@ -321,7 +322,7 @@ class _AddBidderProfileTileState extends ConsumerState<_AddBidderProfileTile> {
       }
     } catch (error) {
       if (mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -528,7 +529,7 @@ class _AddTenderTileState extends ConsumerState<_AddTenderTile> {
       }
     } catch (error) {
       if (mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -575,20 +576,78 @@ class _TenderList extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Text('Tender list',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900)),
+    return LayoutBuilder(builder: (context, constraints) {
+      final heading = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Text('Tender list',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900)),
+      );
+      if (constraints.maxWidth < 900) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            heading,
+            for (final tender in tenders) _TenderCard(tender: tender)
+          ],
+        );
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        heading,
+        Card(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Tender')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Bidder profile')),
+                DataColumn(label: Text('Quoted value')),
+                DataColumn(label: Text('Application cost')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: [
+                for (final tender in tenders)
+                  DataRow(cells: [
+                    DataCell(SizedBox(
+                      width: 280,
+                      child: Text(tender.title,
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                    )),
+                    DataCell(Text(tender.status.value)),
+                    DataCell(Text(tender.bidderProfileName ?? 'Not assigned')),
+                    DataCell(Text(tender.quotedPrice.format())),
+                    DataCell(Text(tender.totalApplicationCost.format())),
+                    DataCell(IconButton(
+                      tooltip: 'Open tender actions',
+                      icon: const Icon(Icons.open_in_new),
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Tender actions'),
+                          content: SizedBox(
+                            width: 720,
+                            child: SingleChildScrollView(
+                                child: _TenderCard(tender: tender)),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )),
+                  ]),
+              ],
+            ),
+          ),
         ),
-        for (final tender in tenders) _TenderCard(tender: tender),
-      ],
-    );
+      ]);
+    });
   }
 }
 
@@ -688,7 +747,7 @@ class _TenderCard extends ConsumerWidget {
       }
     } catch (error) {
       if (context.mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     }
   }
@@ -817,7 +876,7 @@ class _TenderExpenseDialogState extends ConsumerState<_TenderExpenseDialog> {
       }
     } catch (error) {
       if (mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -910,7 +969,7 @@ class _TenderDocumentDialogState extends ConsumerState<_TenderDocumentDialog> {
       }
     } catch (error) {
       if (mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {
@@ -1009,7 +1068,7 @@ class _TenderConvertDialogState extends ConsumerState<_TenderConvertDialog> {
       }
     } catch (error) {
       if (mounted) {
-        _showMessage(context, error.toString());
+        _showMessage(context, friendlyErrorMessage(error));
       }
     } finally {
       if (mounted) {

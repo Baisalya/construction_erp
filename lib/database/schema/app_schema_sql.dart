@@ -1,7 +1,7 @@
 class AppSchemaSql {
   const AppSchemaSql._();
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 3;
 
   static const List<String> tableNames = <String>[
     'companies',
@@ -801,6 +801,8 @@ class AppSchemaSql {
       entity_id TEXT NOT NULL,
       operation TEXT NOT NULL,
       payload_json TEXT NOT NULL,
+      base_version INTEGER NOT NULL DEFAULT 0,
+      new_version INTEGER NOT NULL DEFAULT 1,
       device_id TEXT NOT NULL,
       schema_version INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'pendingUpload',
@@ -840,6 +842,8 @@ class AppSchemaSql {
       version INTEGER NOT NULL DEFAULT 1,
       entity_type TEXT NOT NULL,
       entity_id TEXT NOT NULL,
+      remote_delta_id TEXT,
+      remote_operation TEXT,
       local_payload_json TEXT NOT NULL,
       remote_payload_json TEXT NOT NULL,
       local_version INTEGER NOT NULL,
@@ -900,6 +904,8 @@ class AppSchemaSql {
     'CREATE INDEX IF NOT EXISTS idx_fuel_project ON fuel_entries(company_id, project_id);',
     'CREATE INDEX IF NOT EXISTS idx_project_bills_project ON project_bills(company_id, project_id);',
     'CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(company_id, status);',
+    'CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(company_id, entity_type, entity_id);',
+    'CREATE INDEX IF NOT EXISTS idx_sync_applied_delta ON sync_deltas_applied(company_id, delta_id);',
     'CREATE INDEX IF NOT EXISTS idx_staff_access_cache_staff ON staff_access_cache(company_id, staff_id);',
   ];
 }

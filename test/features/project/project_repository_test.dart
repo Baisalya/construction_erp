@@ -1,14 +1,14 @@
-import 'package:construction_erp_phase5/core/domain/write_context.dart';
-import 'package:construction_erp_phase5/core/value_objects/money.dart';
-import 'package:construction_erp_phase5/database/local_database.dart';
-import 'package:construction_erp_phase5/features/project/data/project_repository.dart';
-import 'package:construction_erp_phase5/features/project/domain/agreement_deduction.dart';
-import 'package:construction_erp_phase5/features/project/domain/agreement_deduction_type.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_agreement_update.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_milestone.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_milestone_status.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_record.dart';
-import 'package:construction_erp_phase5/features/project/domain/project_status.dart';
+import 'package:construction_erp/core/domain/write_context.dart';
+import 'package:construction_erp/core/value_objects/money.dart';
+import 'package:construction_erp/database/local_database.dart';
+import 'package:construction_erp/features/project/data/project_repository.dart';
+import 'package:construction_erp/features/project/domain/agreement_deduction.dart';
+import 'package:construction_erp/features/project/domain/agreement_deduction_type.dart';
+import 'package:construction_erp/features/project/domain/project_agreement_update.dart';
+import 'package:construction_erp/features/project/domain/project_milestone.dart';
+import 'package:construction_erp/features/project/domain/project_milestone_status.dart';
+import 'package:construction_erp/features/project/domain/project_record.dart';
+import 'package:construction_erp/features/project/domain/project_status.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -6,6 +6,7 @@ import '../../../core/permissions/permission_key.dart';
 import '../../../core/permissions/role_type.dart';
 import '../../../core/permissions/staff_status.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../shared/presentation/app_feedback.dart';
 import '../../auth/data/auth_providers.dart';
 import '../domain/default_role_permissions.dart';
 import '../domain/staff_access_policy.dart';
@@ -30,7 +31,7 @@ class StaffPage extends ConsumerWidget {
       error: (error, stackTrace) => _StaffMessage(
         icon: Icons.error_outline,
         title: 'Staff access error',
-        message: '$error',
+        message: friendlyErrorMessage(error),
       ),
       data: (service) {
         final policy = service?.policy;
@@ -55,7 +56,7 @@ class StaffPage extends ConsumerWidget {
           error: (error, stackTrace) => _StaffMessage(
             icon: Icons.error_outline,
             title: 'Cannot load staff',
-            message: '$error',
+            message: friendlyErrorMessage(error),
           ),
           data: (items) => _StaffContent(policy: policy, staff: items),
         );
@@ -169,7 +170,6 @@ class _StaffTable extends StatelessWidget {
           DataColumn(label: Text('Email')),
           DataColumn(label: Text('Role')),
           DataColumn(label: Text('Status')),
-          DataColumn(label: Text('Firebase UID')),
           DataColumn(label: Text('Actions')),
         ],
         rows: [
@@ -180,7 +180,6 @@ class _StaffTable extends StatelessWidget {
                 DataCell(Text(item.email ?? '-')),
                 DataCell(Text(item.roleId ?? '-')),
                 DataCell(_StatusChip(status: item.status)),
-                DataCell(Text(item.firebaseUid ?? 'Pending invite')),
                 DataCell(_StaffActions(policy: policy, staff: item)),
               ],
             ),
@@ -292,6 +291,19 @@ class _StaffActions extends ConsumerWidget {
     WidgetRef ref,
     _StaffAction action,
   ) async {
+    if (action == _StaffAction.deactivate || action == _StaffAction.revoke) {
+      final revoke = action == _StaffAction.revoke;
+      final confirmed = await confirmDestructiveAction(
+        context,
+        title: revoke ? 'Revoke staff access?' : 'Set staff inactive?',
+        message: revoke
+            ? '${staff.name} will no longer be able to open company data or sync changes.'
+            : '${staff.name} will be unable to access company data until reactivated.',
+        confirmLabel: revoke ? 'Revoke access' : 'Set inactive',
+      );
+      if (!confirmed) return;
+    }
+    if (!context.mounted) return;
     try {
       switch (action) {
         case _StaffAction.editDetails:
@@ -311,7 +323,7 @@ class _StaffActions extends ConsumerWidget {
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error')),
+          SnackBar(content: Text(friendlyErrorMessage(error))),
         );
       }
     }
@@ -632,7 +644,7 @@ class _InviteStaffDialogState extends ConsumerState<_InviteStaffDialog> {
         });
       }
     } catch (error) {
-      setState(() => _error = '$error');
+      setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
