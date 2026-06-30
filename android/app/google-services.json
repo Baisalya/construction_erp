@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "390529525910",
+    "project_id": "construction-erp-1ca05",
+    "storage_bucket": "construction-erp-1ca05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:390529525910:android:4fb502382cd6c9a79bfab7",
+        "android_client_info": {
+          "package_name": "com.baishalya.construction_erp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "390529525910-aic1pa2sccgc6oiq0p6107uv47k88r6k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.baishalya.construction_erp",
+            "certificate_hash": "c3b4238838814fe8d085d6e3a809b1dae73cc83e"
+          }
+        },
+        {
+          "client_id": "390529525910-ae8q64qs4tub2q5q75g83bksblsbjrui.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLCXhQkP68idD4EEUk07jR5qviVIGXpM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "390529525910-ae8q64qs4tub2q5q75g83bksblsbjrui.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

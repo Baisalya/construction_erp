@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../database/local_database.dart';
 import '../../../database/schema/app_schema_sql.dart';
@@ -11,10 +13,15 @@ import '../domain/work_module_contract.dart';
 import '../domain/work_records.dart';
 
 class WorkRepository implements WorkModuleContract {
-  WorkRepository({required this.database, Uuid uuid = const Uuid()})
-      : _uuid = uuid;
+  WorkRepository({
+    required this.database,
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
+    Uuid uuid = const Uuid(),
+  })  : _writeGuard = writeGuard,
+        _uuid = uuid;
 
   final ConstructionDatabase database;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -42,6 +49,7 @@ class WorkRepository implements WorkModuleContract {
 
   @override
   Future<String> createWorkDay(WorkDayDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _validateWorkDay(draft);
     await database.ensureSchema();
     final id = _uuid.v4();
@@ -74,6 +82,7 @@ class WorkRepository implements WorkModuleContract {
   @override
   Future<void> updateWorkDay(
       String id, WorkDayDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _validateWorkDay(draft);
     await database.ensureSchema();
     await database.transaction(() async {
@@ -100,8 +109,10 @@ class WorkRepository implements WorkModuleContract {
   }
 
   @override
-  Future<void> deleteWorkDay(String id, WriteContext context) =>
-      _softDelete('work_days', id, context);
+  Future<void> deleteWorkDay(String id, WriteContext context) {
+    _writeGuard.require(PermissionKey.projectEdit);
+    return _softDelete('work_days', id, context);
+  }
 
   @override
   Future<List<ProjectExpenseRecord>> listExpenses(String companyId,
@@ -122,6 +133,7 @@ class WorkRepository implements WorkModuleContract {
   @override
   Future<String> createExpense(
       ProjectExpenseDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _validateExpense(draft);
     await database.ensureSchema();
     final id = _uuid.v4();
@@ -143,6 +155,7 @@ class WorkRepository implements WorkModuleContract {
   @override
   Future<void> updateExpense(
       String id, ProjectExpenseDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _validateExpense(draft);
     await database.ensureSchema();
     await database.transaction(() async {
@@ -175,8 +188,10 @@ class WorkRepository implements WorkModuleContract {
   }
 
   @override
-  Future<void> deleteExpense(String id, WriteContext context) =>
-      _softDelete('project_expenses', id, context);
+  Future<void> deleteExpense(String id, WriteContext context) {
+    _writeGuard.require(PermissionKey.projectEdit);
+    return _softDelete('project_expenses', id, context);
+  }
 
   List<Variable> _expenseVariables(
           String id, ProjectExpenseDraft draft, WriteContext context) =>

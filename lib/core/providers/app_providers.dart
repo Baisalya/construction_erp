@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../database/local_database.dart';
+export '../../database/database_providers.dart';
+
+import '../../database/database_providers.dart';
+import '../../features/auth/data/auth_providers.dart';
 import '../../features/billing/data/billing_repository.dart';
 import '../../features/fuel/data/fuel_repository.dart';
 import '../../features/dashboard/data/dashboard_repository.dart';
@@ -17,14 +20,22 @@ import '../../sync/data/local_sync_repository.dart';
 import '../../sync/domain/sync_repository.dart';
 import '../../sync/firebase/firebase_company_gateway.dart';
 import '../domain/write_context.dart';
+import '../permissions/repository_write_guard.dart';
 
-final localDatabaseProvider = Provider<ConstructionDatabase>((ref) {
-  final database = ConstructionDatabase(openConstructionDatabaseConnection());
-  ref.onDispose(() => database.close());
-  return database;
+final repositoryWriteGuardProvider = Provider<RepositoryWriteGuard>((ref) {
+  final service = ref.watch(permissionServiceProvider).valueOrNull;
+  return StaffPolicyWriteGuard(service?.policy);
 });
 
 final localWriteContextProvider = Provider<WriteContext>((ref) {
+  final policy = ref.watch(permissionServiceProvider).valueOrNull?.policy;
+  if (policy != null) {
+    return WriteContext(
+      companyId: policy.staff.companyId,
+      userId: policy.staff.firebaseUid ?? policy.staff.id,
+      deviceId: 'local-${policy.staff.firebaseUid ?? policy.staff.id}',
+    );
+  }
   return const WriteContext(
     companyId: 'local-company',
     userId: 'local-owner',
@@ -42,35 +53,59 @@ final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {
 });
 
 final tenderRepositoryProvider = Provider<TenderRepository>((ref) {
-  return TenderRepository(database: ref.watch(localDatabaseProvider));
+  return TenderRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
-  return ProjectRepository(database: ref.watch(localDatabaseProvider));
+  return ProjectRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final materialRepositoryProvider = Provider<MaterialRepository>((ref) {
-  return MaterialRepository(database: ref.watch(localDatabaseProvider));
+  return MaterialRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final laborRepositoryProvider = Provider<LaborRepository>((ref) {
-  return LaborRepository(database: ref.watch(localDatabaseProvider));
+  return LaborRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final machineryRepositoryProvider = Provider<MachineryRepository>((ref) {
-  return MachineryRepository(database: ref.watch(localDatabaseProvider));
+  return MachineryRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final fuelRepositoryProvider = Provider<FuelRepository>((ref) {
-  return FuelRepository(database: ref.watch(localDatabaseProvider));
+  return FuelRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final billingRepositoryProvider = Provider<BillingRepository>((ref) {
-  return BillingRepository(database: ref.watch(localDatabaseProvider));
+  return BillingRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final workRepositoryProvider = Provider<WorkRepository>((ref) {
-  return WorkRepository(database: ref.watch(localDatabaseProvider));
+  return WorkRepository(
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
@@ -85,7 +120,9 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 final localRecordMaintenanceProvider =
     Provider<LocalRecordMaintenanceRepository>((ref) {
   return LocalRecordMaintenanceRepository(
-      database: ref.watch(localDatabaseProvider));
+    database: ref.watch(localDatabaseProvider),
+    writeGuard: ref.watch(repositoryWriteGuardProvider),
+  );
 });
 
 final firebaseCompanyGatewayProvider = Provider<FirebaseCompanyGateway>((ref) {

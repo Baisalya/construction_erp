@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/permissions/permission_key.dart';
 import '../../../core/value_objects/money.dart';
+import '../../auth/data/auth_providers.dart';
 import '../domain/agreement_deduction.dart';
 import '../domain/agreement_deduction_type.dart';
 import '../domain/project_agreement_summary.dart';
@@ -31,6 +33,10 @@ class ProjectPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(projectStatsProvider);
     final projects = ref.watch(projectListProvider);
+    final permissionService = ref.watch(permissionServiceProvider).valueOrNull;
+    final canWrite =
+        permissionService?.can(PermissionKey.projectCreate) == true ||
+            permissionService?.can(PermissionKey.projectEdit) == true;
 
     return SafeArea(
       child: ListView(
@@ -45,16 +51,27 @@ class ProjectPage extends ConsumerWidget {
                 _InlineError(message: error.toString()),
           ),
           const SizedBox(height: 14),
-          projects.when(
-            data: (data) => _ProjectForms(projects: data),
-            loading: () => const Card(
-                child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('Loading projects...'))),
-            error: (error, stackTrace) =>
-                _InlineError(message: error.toString()),
-          ),
-          const SizedBox(height: 14),
+          if (canWrite) ...[
+            projects.when(
+              data: (data) => _ProjectForms(projects: data),
+              loading: () => const Card(
+                  child: Padding(
+                      padding: EdgeInsets.all(18),
+                      child: Text('Loading projects...'))),
+              error: (error, stackTrace) =>
+                  _InlineError(message: error.toString()),
+            ),
+            const SizedBox(height: 14),
+          ] else ...[
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.visibility_outlined),
+                title: Text('Read-only project access'),
+                subtitle: Text('Only projects assigned to you are shown.'),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           projects.when(
             data: (data) => _ProjectList(projects: data),
             loading: () => const Card(

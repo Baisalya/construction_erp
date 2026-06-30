@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../database/local_database.dart';
 import '../../../database/schema/app_schema_sql.dart';
@@ -22,12 +24,15 @@ class TenderRepository implements TenderModuleContract {
   TenderRepository({
     required this.database,
     TenderBusinessService businessService = const TenderBusinessService(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _businessService = businessService,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final TenderBusinessService _businessService;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -56,6 +61,7 @@ class TenderRepository implements TenderModuleContract {
   @override
   Future<String> createBidderProfile(
       BidderProfileDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.tenderCreate);
     if (draft.profileName.trim().isEmpty) {
       throw ArgumentError.value(
           draft.profileName, 'profileName', 'Bidder profile name is required.');
@@ -191,6 +197,7 @@ class TenderRepository implements TenderModuleContract {
 
   @override
   Future<String> createTender(TenderDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.tenderCreate);
     _businessService.validateTenderDraft(draft);
     await database.ensureSchema();
     if (draft.bidderProfileId != null) {
@@ -264,6 +271,7 @@ class TenderRepository implements TenderModuleContract {
     int? selectedDate,
     String? rejectionReason,
   }) async {
+    _writeGuard.require(PermissionKey.tenderEdit);
     await database.ensureSchema();
     await _assertTenderExists(context.companyId, tenderId);
     final now = context.timestamp;
@@ -307,6 +315,7 @@ class TenderRepository implements TenderModuleContract {
   @override
   Future<String> addTenderExpense(
       TenderExpenseDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.tenderEdit);
     if (draft.amount.paise < 0) {
       throw ArgumentError.value(
           draft.amount.paise, 'amount', 'Tender expense cannot be negative.');
@@ -373,6 +382,7 @@ class TenderRepository implements TenderModuleContract {
   @override
   Future<String> addTenderDocument(
       TenderDocumentDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.tenderEdit);
     if (draft.fileName.trim().isEmpty) {
       throw ArgumentError.value(
           draft.fileName, 'fileName', 'Document file name is required.');
@@ -439,6 +449,8 @@ class TenderRepository implements TenderModuleContract {
     TenderProjectConversionDraft draft,
     WriteContext context,
   ) async {
+    _writeGuard.require(PermissionKey.tenderEdit);
+    _writeGuard.require(PermissionKey.projectCreate);
     await database.ensureSchema();
     final tender = await findTender(context.companyId, draft.tenderId);
     if (tender == null) {

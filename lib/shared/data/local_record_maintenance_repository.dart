@@ -4,15 +4,21 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/domain/write_context.dart';
+import '../../core/permissions/permission_key.dart';
+import '../../core/permissions/repository_write_guard.dart';
 import '../../database/local_database.dart';
 import '../../database/schema/app_schema_sql.dart';
 
 class LocalRecordMaintenanceRepository {
   LocalRecordMaintenanceRepository(
-      {required this.database, Uuid uuid = const Uuid()})
-      : _uuid = uuid;
+      {required this.database,
+      RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
+      Uuid uuid = const Uuid()})
+      : _writeGuard = writeGuard,
+        _uuid = uuid;
 
   final ConstructionDatabase database;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   static const _deletable = {
@@ -23,6 +29,7 @@ class LocalRecordMaintenanceRepository {
   };
 
   Future<void> softDelete(String table, String id, WriteContext context) async {
+    _writeGuard.require(_permissionForTable(table));
     if (!_deletable.contains(table)) {
       throw ArgumentError.value(table, 'table', 'Deletion is not supported.');
     }
@@ -74,5 +81,17 @@ class LocalRecordMaintenanceRepository {
         Variable<int>(AppSchemaSql.schemaVersion),
       ]);
     });
+  }
+
+  PermissionKey _permissionForTable(String table) {
+    return switch (table) {
+      'material_purchases' => PermissionKey.materialEntry,
+      'labor_work_entries' => PermissionKey.laborEntry,
+      'machine_usage_entries' ||
+      'machine_repair_entries' =>
+        PermissionKey.machineryEntry,
+      _ =>
+        throw ArgumentError.value(table, 'table', 'Deletion is not supported.'),
+    };
   }
 }

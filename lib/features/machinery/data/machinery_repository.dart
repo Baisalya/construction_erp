@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
@@ -15,12 +17,15 @@ class MachineryRepository implements MachineryModuleContract {
   MachineryRepository({
     required this.database,
     MachineryCalculator calculator = const MachineryCalculator(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _calculator = calculator,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final MachineryCalculator _calculator;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -32,6 +37,7 @@ class MachineryRepository implements MachineryModuleContract {
 
   @override
   Future<String> createMachine(MachineDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry);
     if (draft.machineName.trim().isEmpty) {
       throw ArgumentError.value(
           draft.machineName, 'machineName', 'Machine name is required.');
@@ -181,6 +187,8 @@ class MachineryRepository implements MachineryModuleContract {
   @override
   Future<String> createUsageEntry(
       MachineUsageDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry,
+        projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty || draft.machineId.trim().isEmpty) {
       throw ArgumentError('Project and machine are required.');
     }
@@ -265,6 +273,8 @@ class MachineryRepository implements MachineryModuleContract {
   @override
   Future<String> recordRentalPayment(
       MachineRentalPaymentDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry,
+        projectId: draft.projectId);
     if (draft.amount.paise <= 0) {
       throw ArgumentError.value(
           draft.amount, 'amount', 'Machine payment must be greater than zero.');
@@ -325,6 +335,8 @@ class MachineryRepository implements MachineryModuleContract {
   @override
   Future<String> recordRepair(
       MachineRepairDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry,
+        projectId: draft.projectId);
     if (draft.machineId.trim().isEmpty) {
       throw ArgumentError.value(
           draft.machineId, 'machineId', 'Machine is required.');

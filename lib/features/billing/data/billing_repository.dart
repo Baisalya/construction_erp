@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
@@ -15,12 +17,15 @@ class BillingRepository implements BillingModuleContract {
   BillingRepository({
     required this.database,
     BillingCalculator calculator = const BillingCalculator(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _calculator = calculator,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final BillingCalculator _calculator;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -32,6 +37,7 @@ class BillingRepository implements BillingModuleContract {
 
   Future<String> createEstimate(
       ProjectEstimateDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.billingEntry, projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty) {
       throw ArgumentError.value(
           draft.projectId, 'projectId', 'Project is required.');
@@ -167,6 +173,7 @@ class BillingRepository implements BillingModuleContract {
 
   Future<String> createBill(
       ProjectBillDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.billingEntry, projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty) {
       throw ArgumentError.value(
           draft.projectId, 'projectId', 'Project is required.');
@@ -296,6 +303,7 @@ class BillingRepository implements BillingModuleContract {
 
   Future<String> addBillReceipt(
       ProjectBillReceiptDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.billingEntry, projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty) {
       throw ArgumentError.value(
           draft.projectId, 'projectId', 'Project is required.');
@@ -389,6 +397,7 @@ class BillingRepository implements BillingModuleContract {
 
   Future<String> createGstEntry(
       GstEntryDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.billingEntry, projectId: draft.projectId);
     _assertNonNegative('taxableAmount', draft.taxableAmount);
     _assertNonNegative('gstAmount', draft.gstAmount);
     await database.ensureSchema();

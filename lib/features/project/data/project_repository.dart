@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../database/local_database.dart';
 import '../../../database/schema/app_schema_sql.dart';
@@ -22,12 +24,15 @@ class ProjectRepository implements ProjectModuleContract {
   ProjectRepository({
     required this.database,
     ProjectAgreementService agreementService = const ProjectAgreementService(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _agreementService = agreementService,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final ProjectAgreementService _agreementService;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -49,7 +54,10 @@ class ProjectRepository implements ProjectModuleContract {
       ''',
       variables: [Variable<String>(companyId)],
     ).get();
-    return rows.map(_projectFromRow).toList(growable: false);
+    return rows
+        .map(_projectFromRow)
+        .where((project) => _writeGuard.canAccessProject(project.id))
+        .toList(growable: false);
   }
 
   @override
@@ -102,6 +110,9 @@ class ProjectRepository implements ProjectModuleContract {
 
   @override
   Future<ProjectRecord?> findProject(String companyId, String projectId) async {
+    if (!_writeGuard.canAccessProject(projectId)) {
+      return null;
+    }
     await database.ensureSchema();
     final row = await database.customSelect(
       '''
@@ -117,6 +128,7 @@ class ProjectRepository implements ProjectModuleContract {
 
   @override
   Future<String> createProject(ProjectDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectCreate);
     if (draft.projectName.trim().isEmpty) {
       throw ArgumentError.value(
           draft.projectName, 'projectName', 'Project name is required.');
@@ -221,6 +233,7 @@ class ProjectRepository implements ProjectModuleContract {
   @override
   Future<void> updateAgreement(
       ProjectAgreementUpdateDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _assertMoneyIsSafe('agreementGrossValue', draft.agreementGrossValue);
     await database.ensureSchema();
     final project = await findProject(context.companyId, draft.projectId);
@@ -313,6 +326,7 @@ class ProjectRepository implements ProjectModuleContract {
   @override
   Future<String> addAgreementDeduction(
       AgreementDeductionDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     _assertMoneyIsSafe('amount', draft.amount);
     await database.ensureSchema();
     final project = await findProject(context.companyId, draft.projectId);
@@ -380,6 +394,7 @@ class ProjectRepository implements ProjectModuleContract {
   @override
   Future<String> addMilestone(
       ProjectMilestoneDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.projectEdit, projectId: draft.projectId);
     if (draft.title.trim().isEmpty) {
       throw ArgumentError.value(
           draft.title, 'title', 'Milestone title is required.');

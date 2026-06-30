@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function companyPath(companyId) {
+      return /databases/$(database)/documents/companies/$(companyId);
+    }
+
+    function currentStaffPath(companyId) {
+      return /databases/$(database)/documents/companies/$(companyId)/staff/$(request.auth.uid);
+    }
+
+    function activeStaff(companyId) {
+      return signedIn()
+        && exists(currentStaffPath(companyId))
+        && get(currentStaffPath(companyId)).data.status == 'active';
+    }
+
+    function isOwner(companyId) {
+      return signedIn()
+        && exists(companyPath(companyId))
+        && get(companyPath(companyId)).data.ownerUid == request.auth.uid;
+    }
+
+    function isOwnerAfter(companyId) {
+      return signedIn()
+        && getAfter(companyPath(companyId)).data.ownerUid == request.auth.uid;
+    }
+
+    function hasPermission(companyId, permissionKey) {
+      let staff = get(currentStaffPath(companyId)).data;
+      let permissionPath = /databases/$(database)/documents/companies/$(companyId)/role_permissions/$(staff.roleId);
+      return activeStaff(companyId)
+        && exists(permissionPath)
+        && get(permissionPath).data.permissions[permissionKey] == true;
+    }
+
+    function canManageStaff(companyId) {
+      return isOwner(companyId) || hasPermission(companyId, 'staff.manage');
+    }
+
+    function invitePath(companyId, inviteCode) {
+      return /databases/$(database)/documents/companies/$(companyId)/invitations/$(inviteCode);
+    }
+
+    function matchesInvite(companyId, inviteCode) {
+      return signedIn()
+        && inviteCode is string
+        && exists(invitePath(companyId, inviteCode))
+        && get(invitePath(companyId, inviteCode)).data.status == 'pending'
+        && get(invitePath(companyId, inviteCode)).data.email == request.auth.token.email;
+    }
+
+    match /companies/{companyId} {
+      allow get, list: if isOwner(companyId) || activeStaff(companyId);
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if canManageStaff(companyId);
+      allow delete: if false;
+
+      match /staff/{staffDocId} {
+        allow read: if canManageStaff(companyId)
+          || (signedIn() && resource.data.firebaseUid == request.auth.uid)
+          || matchesInvite(companyId, resource.data.inviteCode);
+        allow create: if (
+            isOwnerAfter(companyId)
+            && staffDocId == request.auth.uid
+            && request.resource.data.firebaseUid == request.auth.uid
+            && request.resource.data.roleId == 'owner'
+            && request.resource.data.status == 'active'
+          ) || (
+            staffDocId == request.auth.uid
+            && request.resource.data.firebaseUid == request.auth.uid
+            && request.resource.data.status == 'active'
+            && matchesInvite(companyId, request.resource.data.inviteCode)
+          ) || canManageStaff(companyId);
+        allow update: if canManageStaff(companyId)
+          || (
+            matchesInvite(companyId, resource.data.inviteCode)
+            && resource.data.status == 'invited'
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'acceptedByUid', 'updatedAt'])
+          );
+        allow delete: if false;
+      }
+
+      match /invitations/{inviteCode} {
+        allow read: if canManageStaff(companyId)
+          || (signedIn() && resource.data.email == request.auth.token.email);
+        allow create: if canManageStaff(companyId);
+        allow update: if canManageStaff(companyId)
+          || (
+            signedIn()
+            && resource.data.status == 'pending'
+            && resource.data.email == request.auth.token.email
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.acceptedByUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'acceptedByUid', 'acceptedAt'])
+          );
+        allow delete: if false;
+      }
+
+      match /roles/{roleId} {
+        allow read: if activeStaff(companyId) || isOwner(companyId);
+        allow create: if canManageStaff(companyId) || isOwnerAfter(companyId);
+        allow update: if canManageStaff(companyId);
+        allow delete: if false;
+      }
+
+      match /role_permissions/{roleId} {
+        allow read: if activeStaff(companyId) || isOwner(companyId);
+        allow create: if canManageStaff(companyId) || isOwnerAfter(companyId);
+        allow update: if canManageStaff(companyId);
+        allow delete: if false;
+      }
+
+      match /devices/{deviceId} {
+        allow read: if canManageStaff(companyId)
+          || (activeStaff(companyId) && resource.data.firebaseUid == request.auth.uid);
+        allow create, update: if signedIn()
+          && request.resource.data.firebaseUid == request.auth.uid
+          && (activeStaff(companyId) || isOwnerAfter(companyId));
+        allow delete: if false;
+      }
+
+      // Phase 7 owns sync deltas. Business data remains SQLite-only in Phase 6.
+      match /sync_deltas/{deltaId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Enables the constrained collection-group lookup used at login. A user
+    // can only discover their own canonical staff metadata document.
+    match /{path=**}/staff/{staffDocId} {
+      allow read: if signedIn() && resource.data.firebaseUid == request.auth.uid;
+    }
+
+    // Everything not explicitly listed above, including tenders, projects,
+    // material, labor, machinery, billing, GST and reports, is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

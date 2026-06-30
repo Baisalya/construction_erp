@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
@@ -15,12 +17,15 @@ class LaborRepository implements LaborModuleContract {
   LaborRepository({
     required this.database,
     LaborCalculator calculator = const LaborCalculator(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _calculator = calculator,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final LaborCalculator _calculator;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -32,6 +37,7 @@ class LaborRepository implements LaborModuleContract {
 
   @override
   Future<String> createLaborer(LaborerDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.laborEntry);
     if (draft.name.trim().isEmpty) {
       throw ArgumentError.value(draft.name, 'name', 'Labor name is required.');
     }
@@ -171,6 +177,7 @@ class LaborRepository implements LaborModuleContract {
   @override
   Future<String> createWorkEntry(
       LaborWorkEntryDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.laborEntry, projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty || draft.laborId.trim().isEmpty) {
       throw ArgumentError('Project and labor are required.');
     }
@@ -253,6 +260,7 @@ class LaborRepository implements LaborModuleContract {
   @override
   Future<String> recordLaborPayment(
       LaborPaymentDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.laborEntry, projectId: draft.projectId);
     if (draft.amount.paise <= 0) {
       throw ArgumentError.value(
           draft.amount, 'amount', 'Labor payment must be greater than zero.');
@@ -311,6 +319,7 @@ class LaborRepository implements LaborModuleContract {
   @override
   Future<String> recordLaborAdvance(
       LaborAdvanceDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.laborEntry, projectId: draft.projectId);
     final balance = _calculator.calculateAdvanceBalance(draft);
     await database.ensureSchema();
     final id = _uuid.v4();

@@ -1,26 +1,54 @@
-import 'dart:ui';
-
-import 'package:construction_erp_phase5/app/construction_erp_app.dart';
+import 'package:construction_erp_phase5/core/permissions/role_type.dart';
+import 'package:construction_erp_phase5/core/permissions/staff_status.dart';
 import 'package:construction_erp_phase5/core/providers/app_providers.dart';
 import 'package:construction_erp_phase5/core/domain/write_context.dart';
 import 'package:construction_erp_phase5/core/value_objects/money.dart';
 import 'package:construction_erp_phase5/database/local_database.dart';
 import 'package:construction_erp_phase5/features/project/data/project_repository.dart';
 import 'package:construction_erp_phase5/features/project/domain/project_record.dart';
+import 'package:construction_erp_phase5/features/auth/data/auth_providers.dart';
+import 'package:construction_erp_phase5/features/staff/domain/default_role_permissions.dart';
+import 'package:construction_erp_phase5/features/staff/domain/permission_service.dart';
+import 'package:construction_erp_phase5/features/staff/domain/staff_access_policy.dart';
+import 'package:construction_erp_phase5/features/staff/domain/staff_profile.dart';
+import 'package:construction_erp_phase5/shared/presentation/app_shell.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final ownerService = PermissionService(
+    StaffAccessPolicy(
+      staff: const StaffProfile(
+        id: 'local-owner',
+        companyId: 'local-company',
+        name: 'Test owner',
+        firebaseUid: 'local-owner',
+        roleId: 'owner',
+        roleType: RoleType.owner,
+        status: StaffStatus.active,
+      ),
+      allowedPermissions: DefaultRolePermissions.permissionsFor(RoleType.owner),
+    ),
+  );
+
+  Widget testApp(ConstructionDatabase database) {
+    return ProviderScope(
+      overrides: [
+        localDatabaseProvider.overrideWithValue(database),
+        permissionServiceProvider.overrideWith((ref) async => ownerService),
+      ],
+      child: const MaterialApp(home: AppShell()),
+    );
+  }
+
   testWidgets('Phase 5 app shell opens dashboard', (tester) async {
     final database = ConstructionDatabase(NativeDatabase.memory());
     addTearDown(database.close);
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [localDatabaseProvider.overrideWithValue(database)],
-        child: const ConstructionErpApp(),
-      ),
+      testApp(database),
     );
     await tester.pumpAndSettle();
 
@@ -37,10 +65,7 @@ void main() {
     addTearDown(database.close);
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [localDatabaseProvider.overrideWithValue(database)],
-        child: const ConstructionErpApp(),
-      ),
+      testApp(database),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Open navigation menu'));
@@ -63,10 +88,7 @@ void main() {
     addTearDown(database.close);
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [localDatabaseProvider.overrideWithValue(database)],
-        child: const ConstructionErpApp(),
-      ),
+      testApp(database),
     );
     await tester.pumpAndSettle();
 
@@ -94,10 +116,7 @@ void main() {
             agreementGrossValue: Money.rupees(100000)),
         write);
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [localDatabaseProvider.overrideWithValue(database)],
-      child: const ConstructionErpApp(),
-    ));
+    await tester.pumpWidget(testApp(database));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Open navigation menu'));
     await tester.pumpAndSettle();

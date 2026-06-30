@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
@@ -15,12 +17,15 @@ class MaterialRepository implements MaterialModuleContract {
   MaterialRepository({
     required this.database,
     MaterialCalculator calculator = const MaterialCalculator(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _calculator = calculator,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final MaterialCalculator _calculator;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -33,6 +38,7 @@ class MaterialRepository implements MaterialModuleContract {
   @override
   Future<String> createSupplier(
       SupplierDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.materialEntry);
     if (draft.supplierName.trim().isEmpty) {
       throw ArgumentError.value(
           draft.supplierName, 'supplierName', 'Supplier name is required.');
@@ -96,6 +102,8 @@ class MaterialRepository implements MaterialModuleContract {
   @override
   Future<String> createPurchase(
       MaterialPurchaseDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.materialEntry,
+        projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty) {
       throw ArgumentError.value(
           draft.projectId, 'projectId', 'Project is required.');
@@ -241,6 +249,8 @@ class MaterialRepository implements MaterialModuleContract {
   @override
   Future<String> recordSupplierPayment(
       SupplierPaymentDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.materialEntry,
+        projectId: draft.projectId);
     if (draft.amount.paise <= 0) {
       throw ArgumentError.value(
           draft.amount, 'amount', 'Payment amount must be greater than zero.');

@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/domain/write_context.dart';
+import '../../../core/permissions/permission_key.dart';
+import '../../../core/permissions/repository_write_guard.dart';
 import '../../../core/value_objects/money.dart';
 import '../../../core/value_objects/quantity.dart';
 import '../../../database/local_database.dart';
@@ -15,12 +17,15 @@ class FuelRepository implements FuelModuleContract {
   FuelRepository({
     required this.database,
     FuelCalculator calculator = const FuelCalculator(),
+    RepositoryWriteGuard writeGuard = const AllowAllRepositoryWriteGuard(),
     Uuid uuid = const Uuid(),
   })  : _calculator = calculator,
+        _writeGuard = writeGuard,
         _uuid = uuid;
 
   final ConstructionDatabase database;
   final FuelCalculator _calculator;
+  final RepositoryWriteGuard _writeGuard;
   final Uuid _uuid;
 
   @override
@@ -33,6 +38,7 @@ class FuelRepository implements FuelModuleContract {
   @override
   Future<String> createFuelType(
       FuelTypeDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry);
     if (draft.name.trim().isEmpty) {
       throw ArgumentError.value(
           draft.name, 'name', 'Fuel type name is required.');
@@ -94,6 +100,8 @@ class FuelRepository implements FuelModuleContract {
   @override
   Future<String> createFuelEntry(
       FuelEntryDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry,
+        projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty || draft.fuelTypeId.trim().isEmpty) {
       throw ArgumentError('Project and fuel type are required.');
     }
@@ -185,6 +193,8 @@ class FuelRepository implements FuelModuleContract {
   @override
   Future<void> updateFuelEntry(
       String id, FuelEntryDraft draft, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry,
+        projectId: draft.projectId);
     if (draft.projectId.trim().isEmpty || draft.fuelTypeId.trim().isEmpty) {
       throw ArgumentError('Project and fuel type are required.');
     }
@@ -247,6 +257,7 @@ class FuelRepository implements FuelModuleContract {
 
   @override
   Future<void> deleteFuelEntry(String id, WriteContext context) async {
+    _writeGuard.require(PermissionKey.machineryEntry);
     await database.ensureSchema();
     await database.transaction(() async {
       final changed = await database.customUpdate('''

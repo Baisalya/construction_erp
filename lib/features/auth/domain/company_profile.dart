@@ -2,6 +2,8 @@ class CompanyProfile {
   const CompanyProfile({
     required this.id,
     required this.name,
+    required this.createdAt,
+    required this.updatedAt,
     this.gstNumber,
     this.panNumber,
     this.address,
@@ -10,6 +12,8 @@ class CompanyProfile {
     this.logoPath,
     this.financialYearStart,
     this.financialYearEnd,
+    this.ownerUid,
+    this.status = 'active',
   });
 
   final String id;
@@ -22,4 +26,8 @@ class CompanyProfile {
   final String? logoPath;
   final int? financialYearStart;
   final int? financialYearEnd;
+  final String? ownerUid;
+  final String status;
+  final int createdAt;
+  final int updatedAt;
 }
