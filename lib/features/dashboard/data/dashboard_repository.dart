@@ -68,7 +68,7 @@ class DashboardRepository {
     String companyId,
     Set<String> projectIds,
   ) async {
-    final where = _projectFilterSql(projectIds);
+    final where = _projectFilterSql(projectIds, column: 'id');
     final row = await database.customSelect('''
       SELECT COUNT(*) AS running
       FROM projects

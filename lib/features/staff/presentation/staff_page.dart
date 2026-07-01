@@ -465,41 +465,57 @@ class _StaffActions extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text('Projects for ${staff.name}'),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 460),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                SwitchListTile.adaptive(
-                  value: allProjects,
-                  title: const Text('All-project access'),
-                  subtitle: const Text(
-                    'Allow this staff member to open every project in this company.',
-                  ),
-                  onChanged: (value) => setState(() => allProjects = value),
-                ),
-                const Divider(),
-                if (projects.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text('Create a project before assigning staff.'),
-                  )
-                else
-                  for (final project in projects)
-                    CheckboxListTile(
-                      value: selected.contains(project.id),
-                      title: Text(project.projectName),
-                      onChanged: allProjects
-                          ? null
-                          : (checked) => setState(() {
-                                if (checked == true) {
-                                  selected.add(project.id);
-                                } else {
-                                  selected.remove(project.id);
-                                }
-                              }),
+          content: SizedBox(
+            width: 520,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 460),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile.adaptive(
+                      value: allProjects,
+                      title: const Text('All-project access'),
+                      subtitle: const Text(
+                        'Allow this staff member to open every project in this company.',
+                      ),
+                      onChanged: (value) =>
+                          setState(() => allProjects = value),
                     ),
-              ],
+                    const Divider(),
+                    if (projects.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text('Create a project before assigning staff.'),
+                      )
+                    else
+                      for (final project in projects)
+                        CheckboxListTile(
+                          value: selected.contains(project.id),
+                          title: Text(
+                            project.projectName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: project.projectCode == null ||
+                                  project.projectCode!.trim().isEmpty
+                              ? null
+                              : Text(
+                                  project.projectCode!,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                          onChanged: allProjects
+                              ? null
+                              : (checked) => setState(() {
+                                    if (checked == true) {
+                                      selected.add(project.id);
+                                    } else {
+                                      selected.remove(project.id);
+                                    }
+                                  }),
+                        ),
+                  ],
+                ),
+              ),
             ),
           ),
           actions: [
