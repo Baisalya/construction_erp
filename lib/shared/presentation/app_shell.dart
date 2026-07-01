@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_module.dart';
 import '../../core/permissions/permission_key.dart';
+import '../../core/providers/app_providers.dart';
 import '../../features/auth/data/auth_providers.dart';
 import '../../features/billing/presentation/billing_page.dart';
 import '../../features/dashboard/presentation/dashboard_page.dart';
@@ -18,6 +21,9 @@ import '../../features/settings/presentation/settings_page.dart';
 import '../../features/tender/presentation/tender_page.dart';
 import '../../features/work/presentation/work_page.dart';
 import '../../shared/responsive/responsive_breakpoints.dart';
+import '../../sync/data/sync_providers.dart';
+import '../../sync/domain/sync_models.dart';
+import '../../sync/services/auto_sync_controller.dart';
 import 'app_feedback.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -27,14 +33,59 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   AppModule _selectedModule = AppModule.dashboard;
+  String? _configuredSyncKey;
+  AutoSyncController? _autoSyncController;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_autoSyncController?.stop());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _autoSyncController;
+    if (controller == null) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(controller.resume());
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(controller.pause());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final permissionState = ref.watch(permissionServiceProvider);
     final service = permissionState.valueOrNull;
+    final firebaseReady = ref.watch(firebaseBootstrapProvider).isReady;
+    final user =
+        firebaseReady ? ref.watch(authRepositoryProvider).currentUser : null;
+    final writeContext = ref.watch(localWriteContextProvider);
+    final autoSync = ref.watch(autoSyncControllerProvider);
+    _autoSyncController = autoSync;
+    final syncContext = firebaseReady && user != null && service != null
+        ? SyncContext(
+            companyId: writeContext.companyId,
+            userId: writeContext.userId,
+            staffId: service.policy.staff.id,
+            deviceId: writeContext.deviceId,
+          )
+        : null;
+    _scheduleAutoSync(syncContext);
     final modules = AppModule.values.where((module) {
       if (module == AppModule.staff) {
         return service?.can(PermissionKey.staffManagement) ?? false;
@@ -59,6 +110,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 _DesktopSidebar(
                   modules: modules,
                   selectedModule: _selectedModule,
+                  autoSync: autoSync,
                   onSelected: _selectModule,
                   onRefresh: _refreshAccess,
                   onSync: () => context.push('/sync'),
@@ -88,15 +140,22 @@ class _AppShellState extends ConsumerState<AppShell> {
             title: Text(_selectedModule.title),
             actions: [
               IconButton(
-                tooltip: 'Sync status',
+                tooltip: autoSync.message,
                 onPressed: () => context.push('/sync'),
-                icon: const Icon(Icons.sync),
+                icon: autoSync.phase == AutoSyncPhase.checking
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(_autoSyncIcon(autoSync.phase)),
               ),
             ],
           ),
           drawer: _MobileDrawer(
             modules: modules,
             selectedModule: _selectedModule,
+            autoSync: autoSync,
             onSelected: (module) {
               Navigator.of(context).pop();
               _selectModule(module);
@@ -140,6 +199,23 @@ class _AppShellState extends ConsumerState<AppShell> {
         );
       },
     );
+  }
+
+  void _scheduleAutoSync(SyncContext? context) {
+    final key = context == null
+        ? null
+        : '${context.companyId}|${context.userId}|${context.staffId}|${context.deviceId}';
+    if (_configuredSyncKey == key) return;
+    _configuredSyncKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = ref.read(autoSyncControllerProvider);
+      if (context == null) {
+        unawaited(controller.stop());
+      } else {
+        unawaited(controller.start(context));
+      }
+    });
   }
 
   Widget _buildContent(AppModule module) {
@@ -233,6 +309,7 @@ class _DesktopSidebar extends StatelessWidget {
   const _DesktopSidebar({
     required this.modules,
     required this.selectedModule,
+    required this.autoSync,
     required this.onSelected,
     required this.onRefresh,
     required this.onSync,
@@ -245,6 +322,7 @@ class _DesktopSidebar extends StatelessWidget {
 
   final List<AppModule> modules;
   final AppModule selectedModule;
+  final AutoSyncController autoSync;
   final ValueChanged<AppModule> onSelected;
   final VoidCallback onRefresh;
   final VoidCallback onSync;
@@ -310,8 +388,7 @@ class _DesktopSidebar extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            _ShellMenuItem(
-                icon: Icons.sync, title: 'Sync status', onTap: onSync),
+            _AutoSyncMenuItem(controller: autoSync, onTap: onSync),
             _ShellMenuItem(
                 icon: Icons.swap_horiz_outlined,
                 title: 'Switch company',
@@ -347,6 +424,7 @@ class _MobileDrawer extends StatelessWidget {
   const _MobileDrawer({
     required this.modules,
     required this.selectedModule,
+    required this.autoSync,
     required this.onSelected,
     required this.onSync,
     required this.onSwitchCompany,
@@ -359,6 +437,7 @@ class _MobileDrawer extends StatelessWidget {
 
   final List<AppModule> modules;
   final AppModule selectedModule;
+  final AutoSyncController autoSync;
   final ValueChanged<AppModule> onSelected;
   final VoidCallback onSync;
   final VoidCallback onSwitchCompany;
@@ -389,8 +468,7 @@ class _MobileDrawer extends StatelessWidget {
                 onTap: () => onSelected(module),
               ),
             const Divider(),
-            _ShellMenuItem(
-                icon: Icons.sync, title: 'Sync status', onTap: onSync),
+            _AutoSyncMenuItem(controller: autoSync, onTap: onSync),
             _ShellMenuItem(
                 icon: Icons.swap_horiz_outlined,
                 title: 'Switch company',
@@ -439,6 +517,44 @@ class _ShellMenuItem extends StatelessWidget {
     );
   }
 }
+
+class _AutoSyncMenuItem extends StatelessWidget {
+  const _AutoSyncMenuItem({required this.controller, required this.onTap});
+
+  final AutoSyncController controller;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: controller.phase == AutoSyncPhase.checking
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(_autoSyncIcon(controller.phase)),
+      title: Text(_autoSyncLabel(controller.phase)),
+      onTap: onTap,
+    );
+  }
+}
+
+IconData _autoSyncIcon(AutoSyncPhase phase) => switch (phase) {
+      AutoSyncPhase.checking => Icons.sync,
+      AutoSyncPhase.upToDate => Icons.cloud_done_outlined,
+      AutoSyncPhase.offline => Icons.cloud_off_outlined,
+      AutoSyncPhase.attention => Icons.sync_problem_outlined,
+      AutoSyncPhase.stopped => Icons.sync_disabled_outlined,
+    };
+
+String _autoSyncLabel(AutoSyncPhase phase) => switch (phase) {
+      AutoSyncPhase.checking => 'Updating company data',
+      AutoSyncPhase.upToDate => 'Company data up to date',
+      AutoSyncPhase.offline => 'Offline — retrying',
+      AutoSyncPhase.attention => 'Update needs attention',
+      AutoSyncPhase.stopped => 'Automatic update paused',
+    };
 
 class _MobileNavigationBar extends StatelessWidget {
   const _MobileNavigationBar({
@@ -541,7 +657,7 @@ class NavigationItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
               Icon(

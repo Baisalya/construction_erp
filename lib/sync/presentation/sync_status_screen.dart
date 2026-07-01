@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../features/auth/data/auth_providers.dart';
 import '../../shared/presentation/app_feedback.dart';
 import '../data/sync_providers.dart';
 import '../domain/sync_models.dart';
+import '../services/auto_sync_controller.dart';
 
 class SyncStatusScreen extends ConsumerStatefulWidget {
   const SyncStatusScreen({super.key});
@@ -20,12 +22,15 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
   @override
   Widget build(BuildContext context) {
     final writeContext = ref.watch(localWriteContextProvider);
+    final permissionService = ref.watch(permissionServiceProvider).valueOrNull;
     final syncContext = SyncContext(
       companyId: writeContext.companyId,
       userId: writeContext.userId,
       deviceId: writeContext.deviceId,
+      staffId: permissionService?.policy.staff.id,
     );
     final summary = ref.watch(syncStatusSummaryProvider(syncContext.companyId));
+    final autoSync = ref.watch(autoSyncControllerProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Data sync')),
       body: SafeArea(
@@ -38,6 +43,20 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
               Text(
                 'Keep this device up to date with your company’s other signed-in devices. Your work stays saved on this device first.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: ListTile(
+                  leading: autoSync.phase == AutoSyncPhase.checking
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(_automaticIcon(autoSync.phase)),
+                  title: Text(_automaticLabel(autoSync.phase)),
+                  subtitle: Text(autoSync.message),
+                ),
               ),
               const SizedBox(height: 16),
               summary.when(
@@ -81,7 +100,8 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
     });
     try {
       final result =
-          await ref.read(syncOrchestratorProvider).syncNow(syncContext);
+          await ref.read(autoSyncControllerProvider).syncNow(syncContext);
+      if (!mounted) return;
       setState(() => _message = result.failed > 0
           ? 'Sync finished with ${result.failed} item${result.failed == 1 ? '' : 's'} that could not be updated. Your local work is safe.'
           : result.conflicts > 0
@@ -110,6 +130,22 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
         fallback: 'Sync could not finish. Your local work is safe.');
   }
 }
+
+IconData _automaticIcon(AutoSyncPhase phase) => switch (phase) {
+      AutoSyncPhase.upToDate => Icons.cloud_done_outlined,
+      AutoSyncPhase.offline => Icons.cloud_off_outlined,
+      AutoSyncPhase.attention => Icons.sync_problem_outlined,
+      AutoSyncPhase.stopped => Icons.sync_disabled_outlined,
+      AutoSyncPhase.checking => Icons.sync,
+    };
+
+String _automaticLabel(AutoSyncPhase phase) => switch (phase) {
+      AutoSyncPhase.upToDate => 'Automatic update is on',
+      AutoSyncPhase.offline => 'Offline — automatic retry is on',
+      AutoSyncPhase.attention => 'Some items need attention',
+      AutoSyncPhase.stopped => 'Automatic update is paused',
+      AutoSyncPhase.checking => 'Checking company updates',
+    };
 
 class _StatusGrid extends StatelessWidget {
   const _StatusGrid({required this.counts});

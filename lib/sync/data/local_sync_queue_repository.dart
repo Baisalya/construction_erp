@@ -6,6 +6,7 @@ import '../../database/local_database.dart';
 import '../domain/sync_delta.dart';
 import '../domain/sync_entity_registry.dart';
 import '../domain/sync_models.dart';
+import '../services/sync_outbox_signal.dart';
 
 class LocalSyncQueueRepository {
   LocalSyncQueueRepository({required ConstructionDatabase database})
@@ -19,6 +20,7 @@ class LocalSyncQueueRepository {
   Future<void> queueDelta(SyncDelta delta) async {
     await _database.ensureSchema();
     await _writeQueue(delta, SyncStatuses.pendingUpload);
+    SyncOutboxSignal.notify(delta.companyId);
   }
 
   Future<void> recordDownloadedDelta(SyncDelta delta) async {

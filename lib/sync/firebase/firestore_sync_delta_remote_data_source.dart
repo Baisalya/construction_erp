@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/sync_delta.dart';
@@ -7,14 +9,89 @@ import '../domain/sync_remote_data_source.dart';
 
 class FirestoreSyncDeltaRemoteDataSource implements SyncDeltaRemoteDataSource {
   FirestoreSyncDeltaRemoteDataSource({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
-  final FirebaseFirestore _firestore;
+      : _firestoreOverride = firestore;
+  final FirebaseFirestore? _firestoreOverride;
+
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _collection(String companyId) =>
       _firestore
           .collection('companies')
           .doc(companyId)
           .collection('sync_deltas');
+
+  /// Emits a lightweight signal when an allowed remote query changes.
+  ///
+  /// The existing download/apply pipeline remains responsible for validation,
+  /// deduplication, conflict detection and local Drift transactions. Keeping
+  /// those responsibilities in one place avoids a second sync code path.
+  Stream<void> watchChangeSignals(
+    String companyId, {
+    required SyncDownloadScope scope,
+  }) {
+    final subscriptions =
+        <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    late final StreamController<void> controller;
+
+    Future<void> listen() async {
+      for (final query in _queriesForScope(companyId, scope)) {
+        final subscription = query.snapshots().listen(
+          (snapshot) {
+            if (snapshot.docChanges.isNotEmpty && !controller.isClosed) {
+              controller.add(null);
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!controller.isClosed) {
+              controller.addError(error, stackTrace);
+            }
+          },
+        );
+        subscriptions.add(subscription);
+      }
+    }
+
+    controller = StreamController<void>(
+      onListen: () => unawaited(listen()),
+      onCancel: () async {
+        for (final subscription in subscriptions) {
+          await subscription.cancel();
+        }
+      },
+    );
+    return controller.stream;
+  }
+
+  List<Query<Map<String, dynamic>>> _queriesForScope(
+    String companyId,
+    SyncDownloadScope scope,
+  ) {
+    if (scope.allCompanyData) {
+      return <Query<Map<String, dynamic>>>[_collection(companyId)];
+    }
+
+    final queries = <Query<Map<String, dynamic>>>[];
+    final projectIds = scope.projectIds.toList(growable: false);
+    for (final entityType in scope.entityTypes) {
+      final base = _collection(companyId).where(
+        'entityType',
+        isEqualTo: entityType,
+      );
+      if (!SyncEntityRegistry.projectScopedEntityTypes.contains(entityType)) {
+        queries.add(base);
+        continue;
+      }
+      for (var offset = 0; offset < projectIds.length; offset += 30) {
+        final end = (offset + 30).clamp(0, projectIds.length);
+        queries.add(base.where(
+          'projectId',
+          whereIn: projectIds.sublist(offset, end),
+        ));
+      }
+    }
+    return queries;
+  }
 
   @override
   Future<void> uploadDelta(SyncDelta delta) async {

@@ -8,6 +8,7 @@ import '../../database/local_database.dart';
 import '../../database/schema/app_schema_sql.dart';
 import '../domain/sync_entity_registry.dart';
 import '../domain/sync_models.dart';
+import '../services/sync_outbox_signal.dart';
 
 class LocalDeltaWriter {
   const LocalDeltaWriter._();
@@ -61,6 +62,7 @@ class LocalDeltaWriter {
       context.deviceId,
       AppSchemaSql.schemaVersion,
     ]);
+    SyncOutboxSignal.notify(context.companyId);
   }
 
   static int _int(Object? value, {required int fallback}) {

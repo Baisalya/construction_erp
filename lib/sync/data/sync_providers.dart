@@ -6,6 +6,7 @@ import '../domain/sync_models.dart';
 import '../domain/sync_permission_guard.dart';
 import '../firebase/firestore_sync_delta_remote_data_source.dart';
 import '../services/sync_apply_service.dart';
+import '../services/auto_sync_controller.dart';
 import '../services/conflict_resolution_service.dart';
 import '../services/sync_orchestrator.dart';
 import 'device_identity_service.dart';
@@ -49,6 +50,38 @@ final syncOrchestratorProvider = Provider<SyncOrchestrator>((ref) =>
         deviceIdentityService: ref.watch(deviceIdentityServiceProvider),
         remote: ref.watch(firestoreSyncDeltaRemoteDataSourceProvider),
         permissionGuard: ref.watch(syncPermissionGuardProvider)));
+
+final autoSyncControllerProvider =
+    ChangeNotifierProvider<AutoSyncController>((ref) {
+  final orchestrator = ref.watch(syncOrchestratorProvider);
+  final queue = ref.watch(localSyncQueueRepositoryProvider);
+  final guard = ref.watch(syncPermissionGuardProvider);
+  final remote = ref.watch(firestoreSyncDeltaRemoteDataSourceProvider);
+  return AutoSyncController(
+    runSync: orchestrator.syncNow,
+    pendingCount: queue.pendingUploadCount,
+    loadScope: guard.downloadScope,
+    watchRemoteChanges: (companyId, scope) => remote.watchChangeSignals(
+      companyId,
+      scope: scope,
+    ),
+    onCompleted: (context, result) {
+      ref.invalidate(syncStatusSummaryProvider(context.companyId));
+      if (result.applied == 0) return;
+      ref.invalidate(dashboardRepositoryProvider);
+      ref.invalidate(moduleSummaryRepositoryProvider);
+      ref.invalidate(reportsRepositoryProvider);
+      ref.invalidate(tenderRepositoryProvider);
+      ref.invalidate(projectRepositoryProvider);
+      ref.invalidate(materialRepositoryProvider);
+      ref.invalidate(laborRepositoryProvider);
+      ref.invalidate(machineryRepositoryProvider);
+      ref.invalidate(fuelRepositoryProvider);
+      ref.invalidate(billingRepositoryProvider);
+      ref.invalidate(workRepositoryProvider);
+    },
+  );
+});
 final syncStatusSummaryProvider = FutureProvider.family<SyncCounts, String>(
     (ref, companyId) =>
         ref.watch(localSyncQueueRepositoryProvider).statusCounts(companyId));

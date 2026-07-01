@@ -37,6 +37,26 @@ void main() {
     );
   });
 
+  test('invitation index errors do not expose Firebase console links', () {
+    final invitationIndex = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'failed-precondition',
+      message: 'The query requires an index. That index is currently building '
+          'and cannot be used yet. See its status here: '
+          'https://console.firebase.google.com/v1/r/project/demo/firestore/indexes',
+    );
+
+    expect(isFirestoreIndexSetupError(invitationIndex), isTrue);
+    expect(
+      friendlyErrorMessage(invitationIndex),
+      firestoreIndexSetupMessage,
+    );
+    expect(
+      friendlyErrorMessage(invitationIndex),
+      isNot(contains('console.firebase.google.com')),
+    );
+  });
+
   testWidgets('auth gateway does not show Access blocked for missing index',
       (tester) async {
     const user = AppUser(uid: 'uid-1', email: 'staff@example.com');

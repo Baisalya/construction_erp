@@ -427,13 +427,26 @@ class FirebaseCompanyRepository {
     if (normalizedCode.isEmpty) {
       throw ArgumentError('Invite code is required.');
     }
-    final matches = await _firestoreInstance
-        .collectionGroup('invitations')
-        .where('inviteCodeHash', isEqualTo: hashInvitationCode(normalizedCode))
-        .where('normalizedEmail', isEqualTo: normalizeEmail(user.email))
-        .where('status', isEqualTo: 'pending')
-        .limit(1)
-        .get();
+    final QuerySnapshot<Map<String, dynamic>> matches;
+    try {
+      matches = await _firestoreInstance
+          .collectionGroup('invitations')
+          .where(
+            'inviteCodeHash',
+            isEqualTo: hashInvitationCode(normalizedCode),
+          )
+          .where('normalizedEmail', isEqualTo: normalizeEmail(user.email))
+          .where('status', isEqualTo: 'pending')
+          .limit(1)
+          .get();
+    } on FirebaseException catch (error, stackTrace) {
+      if (isMissingInvitationLookupIndexError(error)) {
+        logMissingInvitationLookupIndex(error, stackTrace: stackTrace);
+      } else if (isFirestoreIndexSetupError(error)) {
+        logFirestoreIndexSetupError(error, stackTrace: stackTrace);
+      }
+      rethrow;
+    }
     if (matches.docs.isEmpty) {
       throw StateError('Invite not found. Check the invite code.');
     }
@@ -451,11 +464,21 @@ class FirebaseCompanyRepository {
     if (!_enableRemoteMetadata) return const <PendingCompanyInvitation>[];
     final email = normalizeEmail(user.email);
     if (email.isEmpty) return const <PendingCompanyInvitation>[];
-    final snapshot = await _firestoreInstance
-        .collectionGroup('invitations')
-        .where('normalizedEmail', isEqualTo: email)
-        .where('status', isEqualTo: 'pending')
-        .get();
+    final QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await _firestoreInstance
+          .collectionGroup('invitations')
+          .where('normalizedEmail', isEqualTo: email)
+          .where('status', isEqualTo: 'pending')
+          .get();
+    } on FirebaseException catch (error, stackTrace) {
+      if (isMissingInvitationLookupIndexError(error)) {
+        logMissingInvitationLookupIndex(error, stackTrace: stackTrace);
+      } else if (isFirestoreIndexSetupError(error)) {
+        logFirestoreIndexSetupError(error, stackTrace: stackTrace);
+      }
+      rethrow;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     return snapshot.docs
         .map((doc) {

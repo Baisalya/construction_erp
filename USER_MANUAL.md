@@ -1,557 +1,542 @@
 # Construction ERP User Manual
 
-This manual is for company owners, administrators, accountants, project managers, site supervisors, data-entry staff, and viewers. It explains the app in simple language and follows the same names shown on Android and Windows.
+This manual is for the company owner, administrators, accountants, project managers, site supervisors, data-entry staff, and viewers. It uses the same simple names shown in the Android and Windows app.
 
-## 1. What this app does
+## 1. Read this before using the app
 
-Construction ERP keeps the complete work cycle in one place:
+Construction ERP saves work to the local Drift/SQLite database first. When the user is signed in and the internet is available, the app automatically shares allowed company changes with the other active devices.
 
-1. Add a tender.
-2. Mark the tender selected.
-3. Convert it into a project.
-4. Enter the agreement value and deductions.
-5. Record daily work and every project expense.
-6. Create estimates and bills.
-7. Record receipts and GST.
-8. Check pending payments and profit or loss.
-9. Sync approved company changes between signed-in devices.
-10. Create backups and export reports.
+Automatic updating now works:
 
-The local database on the device is the main business record. Work is saved locally first. Internet is mainly required for sign-in, staff access updates, and syncing between devices.
+- When the app starts.
+- When the app returns from the background.
+- Shortly after a user saves a record.
+- When another allowed company device sends a change.
+- Through an eight-second foreground queue check.
+- Through automatic retry after a temporary internet or Firebase failure.
 
-## 2. Important rules for every user
+The **Sync status** page and **Sync now** button remain available as a backup.
 
-- Select the correct project before entering any expense.
-- Enter money in rupees, for example `12500` or `12500.50`.
-- Do not type commas or the rupee symbol in input boxes.
-- Quantity, rate, paid amount, GST, fuel, and repair amounts cannot be negative.
-- Check Total, Paid, Pending, and Status after saving.
-- `Paid` means nothing is pending.
-- `Partial` means part of the amount is paid.
-- `Pending` means no payment is recorded yet.
-- Never share passwords, backup files, or company access codes with unauthorized people.
-- Sync before starting work on a second device and sync again after finishing.
-- Create a backup before restoring data or making large corrections.
+> Important temporary payment rule: Until the Phase 11 financial ledger upgrade is installed, the owner must nominate one person/device to record supplier payments, labor payments, machinery payments, and client receipts. Other staff may enter approved site work and expenses, but two people must not record payments against the same bill or balance at the same time.
 
-## 3. Android and Windows navigation
+Create a backup every working day. Automatic sharing is not a replacement for backup.
+
+## 2. Complete company work flow
+
+| Step | Person normally responsible | What to do | Result |
+|---|---|---|---|
+| 1. Company setup | Owner | Create the company and check GST/contact details | Company workspace is ready |
+| 2. Staff setup | Owner/Admin | Invite staff, select a role, and assign projects | Staff sees only allowed work |
+| 3. Tender | Tender staff/Manager | Add bidder profile, tender, dates, value, and expenses | Tender cost and status are recorded |
+| 4. Tender result | Owner/Manager | Mark an awarded tender as selected | Tender can become a project |
+| 5. Create project | Owner/Manager | Convert selected tender or create a project manually | Project ledger is opened |
+| 6. Agreement | Owner/Manager/Accountant | Enter gross value, recoverable and non-recoverable deductions | Final agreement value is calculated |
+| 7. Daily work | Site Supervisor | Add site diary, work progress, and approved expenses | Daily project history is available |
+| 8. Material | Store/Site/Accountant | Add purchase, item values, GST, and supplier details | Material cost and supplier pending are calculated |
+| 9. Labor | Site Supervisor/Accountant | Add daywise, hourly, piece, or fixed work | Labor cost and pending are calculated |
+| 10. Machinery | Site Supervisor/Manager | Add own/rental use, fuel, repair, and rental charges | Machinery cost enters the project ledger |
+| 11. Billing | Accountant | Create estimate, running/final bill, deductions, and GST | Net receivable is calculated |
+| 12. Payment/receipt | One nominated operator | Record supplier/labor payments and client receipts | Paid and pending values are updated |
+| 13. Review | Owner/Accountant | Check Dashboard, GST, pending amounts, and profit/loss | Management sees the current position |
+| 14. Share and protect | Automatic + Owner | Check update status and create a daily backup | Other devices update and recovery copy exists |
+
+Simple flow:
+
+`Tender → Selected → Project → Agreement → Daily Work/Costs → Bill → Receipt → GST → Profit/Loss → Backup`
+
+## 3. Roles and responsibilities
+
+| Role | Normal use | Should not normally do |
+|---|---|---|
+| Owner | Full company control, staff, projects, reports, conflicts, backup | Share password or invite code |
+| Admin | Trusted daily administration and staff control | Give unnecessary access |
+| Accountant | Purchases, payments, billing, GST, reports, exports | Change site work without confirmation |
+| Project Manager | Assigned project planning, work, material, labor, machinery | Open unassigned projects |
+| Site Supervisor | Daily work, approved site entries, measurements and notes | Record unapproved financial payments |
+| Data Entry | Enter approved documents and records | Approve own work or manage staff |
+| Viewer | Read allowed project information | Create, edit, delete, pay, or sync writes |
+
+Permissions belong to the membership in the active company. A person can be Owner in one company and Staff in another company using the same login.
+
+## 4. Android and Windows navigation
 
 ### Android
 
-The bottom menu provides quick access to Dashboard, Tenders, Projects, and Work. Tap **More** or the top-left menu button to open Material, Labor, Machinery, Fuel, Billing, Reports, Staff, Settings, and Sync Status.
+- Use the bottom navigation for Dashboard, Tenders, Projects, and Work.
+- Tap **More** or the top-left menu to open Material, Labor, Machinery, Fuel, Billing, Reports, Staff, Settings, and Sync Status.
+- Swipe or scroll forms before assuming a button is missing.
+- Tap the cloud/update icon to open Sync Status.
 
 ### Windows
 
-Use the fixed sidebar on the left. Lists appear as tables on wider screens. Use the mouse, Tab key, Shift+Tab, arrow keys, Enter, and Space to move through fields and buttons.
+- Use the fixed sidebar on the left.
+- Wider lists use table layouts.
+- Use Tab and Shift+Tab to move through form fields.
+- Use Enter or Space to activate the selected button.
+- The sidebar update row shows whether company data is current, updating, offline, or needs attention.
 
-If a menu is missing, your staff role does not have permission for that area.
+If a menu is absent or locked, the active role does not have permission for it.
 
-## 4. First-time setup
+## 5. Login, company, and project selection
 
-### Owner registration
+### Create the first owner account
 
-1. Open the app.
-2. Tap **Create account**.
-3. Enter the owner's name, email, and a secure password.
-4. Complete email/password or Google sign-in.
-5. Create the company profile.
-6. Enter the company name and available registration, GST, PAN, address, phone, and financial-year details.
-7. Review the information before saving.
+1. Open the app and choose **Create account**.
+2. Enter the owner name, normalized email, and a strong password.
+3. Sign in with email/password or the connected Google account.
+4. Create the company.
+5. Enter company name and optional GST, PAN, address, phone, and email.
+6. Check the company details before saving.
 
-The first company user becomes the Owner and receives full access.
+### Returning user
 
-### Returning user login
+1. Sign in with the previously connected method.
+2. If only one company is active, the app normally selects it.
+3. If several companies are available, choose the correct company.
+4. Use **Select project** to limit the current view to one allowed project when required.
 
-1. Enter the registered email and password, or use the linked Google account.
-2. If the device is offline, previously saved access may be used only when the user was already active on that device.
-3. Revoked or inactive staff cannot bypass access by going offline.
+### Switch company safely
 
-## 5. Roles and staff access
+1. Open **Switch company** from the sidebar/profile menu.
+2. Read the role shown below each company name.
+3. Tap **Switch** on the correct company.
+4. Wait for the company update status.
+5. Check the company/project name before entering data.
 
-### Owner
+Data from the previous company stays on the device but must not appear in the new company view.
 
-Has complete access to company data, projects, staff, reports, sync conflicts, backup, restore, and settings.
+## 6. Staff invitation and access
 
-### Admin
-
-Has full operational access and can manage staff. Give this role only to a trusted senior employee.
-
-### Accountant
-
-Normally handles material costs, billing, GST, reports, and exports.
-
-### Project Manager
-
-Normally manages assigned projects, tender updates, work entries, material, labor, machinery, and billing.
-
-### Site Supervisor
-
-Normally enters material, labor, machinery, fuel, and site information for assigned projects.
-
-### Data Entry Staff
-
-Can enter approved operational information but should not receive staff, settings, delete, or export authority unless the owner explicitly permits it.
-
-### Viewer
-
-Read-only access to assigned projects.
-
-### Add a staff member
+### Invite staff
 
 1. Open **Staff**.
-2. Tap **Add staff**.
-3. Enter the staff name, valid email, optional phone, and role.
-4. Save or send the invitation.
-5. Open the staff action menu.
-6. Choose **Assign projects**.
-7. Tick only the projects that person should see.
-8. Save assignments.
+2. Choose **Invite staff** or **Add staff**.
+3. Enter the staff member's real name and email.
+4. Select the correct role.
+5. Choose all-project access only when genuinely needed.
+6. Otherwise assign only the required projects.
+7. Save/send the invitation.
 
-### Change staff access
+### Join a company
 
-- **Edit details** changes name, email, or phone.
-- **Change role** changes the permission group.
-- **Assign projects** controls project visibility.
-- **Activate** restores access.
-- **Set inactive** temporarily blocks company access.
-- **Revoke access** permanently blocks access until an authorized person changes it again.
+1. Sign in using the invited email address.
+2. Open **Join company**.
+3. Select the pending invitation or enter the invite code.
+4. Confirm the company name before accepting.
 
-The app asks for confirmation before making staff inactive or revoked. After changing access, ask the staff member to use **Refresh access**.
+### Change or remove access
 
-## 6. Dashboard
+- **Change role** updates job permissions.
+- **Assign projects** changes project visibility.
+- **Suspend** temporarily blocks access.
+- **Revoke** removes company access.
+- **Activate** restores an allowed membership.
 
-The Dashboard is the owner's quick company summary. It shows:
+After changing permissions, the staff member should keep the app online and use **Refresh access** if the change is not yet visible.
 
-- Active and selected tenders
-- Running projects
-- Pending supplier, labor, and machinery amounts
-- Total project value
-- Total actual expense
-- Profit or loss by agreement
-- GST input, GST output, and net GST
+## 7. Dashboard
 
-Pull down on Android or refresh the page to load recent local records.
+The Dashboard is a summary. It is not a separate editable ledger.
 
-Use the Dashboard to notice unusual pending amounts, falling profit, or missing entries. Open the related module to correct the source record; do not try to edit Dashboard totals directly.
+It shows:
 
-## 7. Tender management
+- Active and selected tenders.
+- Running projects.
+- Pending supplier, labor, and machinery amounts.
+- Total agreement/project value.
+- Total actual project expense.
+- Profit or loss by agreement.
+- GST input, GST output, and net GST.
 
-### Create a bidder profile
+If a total looks wrong, open the related Material, Labor, Machinery, Billing, or Project record and correct the source entry. Pull to refresh on Android when needed. Automatically received changes also refresh the active data providers.
 
-A bidder profile represents a tender portal/company login used for applications.
+## 8. Tender management
+
+### Bidder profile
+
+Create a separate bidder profile for each portal, company identity, joint venture, partner, or tender login.
 
 1. Open **Tenders**.
-2. Find the bidder profile section.
-3. Enter a clear profile name, portal name, username, and other available details.
-4. Tap **Save bidder profile**.
-
-Use separate profiles when the company applies through different portals, joint ventures, partners, or usernames.
+2. Add a bidder profile.
+3. Enter a clear profile and portal name.
+4. Add available username/contact information.
+5. Save.
 
 ### Add a tender
 
 1. Select the bidder profile.
-2. Enter the tender title. This is required.
-3. Enter tender number, client/department, location, important dates, and notes where available.
-4. Enter estimated value and quoted price.
-5. Enter EMD, tender fee, document fee, processing cost, and other application costs.
-6. Select the correct tender status.
-7. Tap **Save tender**.
+2. Enter tender title; this is required.
+3. Enter tender number, department/client, location, and important dates.
+4. Enter estimated value and quoted value.
+5. Enter EMD, tender fee, document fee, processing cost, and other costs.
+6. Select the correct status.
+7. Save the tender.
 
-### Tender expenses
+### Tender expense and documents
 
-Open the tender action and tap **Add expense**. Select the expense type and enter the amount, description, paid-to name, and payment mode. Examples include travel, document preparation, portal charges, consultancy, and submission cost.
+- Use **Add expense** for travel, document preparation, portal fees, consultancy, and submission costs.
+- Use **Add document** with names such as `EMD Receipt`, `Technical Bid`, or `Final BOQ`.
 
-The tender's application cost is the total of its saved application charges and additional tender expenses.
+### Convert to project
 
-### Tender documents
+1. Confirm that the tender was genuinely awarded.
+2. Choose **Mark selected**.
+3. Check quoted value and tender information.
+4. Choose **Convert to project**.
+5. Enter the requested project code/name details.
+6. Save once. Do not create a second manual project for the same awarded tender.
 
-Tap **Add document** to record the file name/type and available document details. Use clear names such as `EMD Receipt`, `Technical Bid`, or `BOQ Final`.
+## 9. Project and agreement
 
-### Tender result and project conversion
+### Create a manual project
 
-1. When the result is confirmed, use **Mark selected** only for a genuinely awarded tender.
-2. Check quoted value and tender information.
-3. Tap **Convert to project**.
-4. Enter the project code/name information requested.
-5. Tap **Create project**.
+Use this only when the job did not come from a tender.
 
-Only a selected tender can be converted. Do not create a duplicate project manually if conversion already succeeded.
+1. Open **Projects** and choose **Create project**.
+2. Enter project name; this is required.
+3. Add code, client, location, and dates.
+4. Enter gross agreement value.
+5. Add available security deposit, retention, GST, guarantee, advance, and notes.
+6. Save.
 
-## 8. Projects and agreement calculation
+### Agreement terms
 
-### Create a project manually
+| Term | Meaning |
+|---|---|
+| Gross agreement value | Starting contract value |
+| Recoverable deduction | Temporarily held and expected back |
+| Non-recoverable deduction | Permanently reduces final value |
+| Security/retention | Amount held under the agreement |
+| Final agreement value | Gross value after applicable permanent deductions |
 
-Use manual creation only when the project did not originate from a tender.
-
-1. Open **Projects**.
-2. Tap or open **Create project**.
-3. Enter the project name; this is required.
-4. Enter project code, client, location, and dates when available.
-5. Enter the gross agreement value.
-6. Enter security deposit, retention, GST rate, performance guarantee, advance received, and notes as applicable.
-7. Tap **Save project**.
-
-### Understanding agreement values
-
-- **Gross agreement value:** starting contract value.
-- **Security deposit:** amount held as security.
-- **Recoverable deduction:** temporarily held and expected to be returned; it is tracked but does not permanently reduce agreement value.
-- **Non-recoverable deduction:** permanently reduces the final agreement value.
-- **Final agreement value:** gross value minus applicable permanent deductions.
-
-### Add agreement deductions
+### Deductions and milestones
 
 1. Select the project.
-2. Choose the deduction type.
-3. Enter amount or rate as required.
-4. Mark whether it is recoverable.
-5. Save the deduction.
+2. Add the deduction title/type and amount/rate.
+3. Mark recoverable correctly.
+4. Save and verify the final agreement value.
+5. Add milestones for handover, foundation, slab, bill submission, testing, completion, or other important stages.
 
-Check the recalculated final agreement value immediately after saving.
+## 10. Work page and other expenses
 
-### Milestones
-
-Use milestones for important stages such as site handover, foundation completion, slab completion, running bill submission, testing, or final handover.
-
-1. Select the project.
-2. Enter milestone title and description.
-3. Enter any payment-linked amount.
-4. Save the milestone.
-
-## 9. Work page
-
-The Work page contains the site diary and other project expenses.
-
-### Site diary
+### Daily site diary
 
 1. Select the correct project.
-2. Enter site name, weather, and work notes.
-3. Describe completed work, delays, manpower issues, inspections, or material shortages clearly.
-4. Tap **Save diary**.
+2. Enter date/site, weather, and work notes.
+3. Record completed work, delays, manpower issues, inspections, shortages, and instructions.
+4. Save.
 
-Use the edit button to correct a diary. Use delete only for a genuinely wrong duplicate; deletion requires confirmation.
+Write notes that another manager can understand later. Delete only a genuine duplicate or wrong entry.
 
-### Other project expenses
+### Other project expense
 
-Use this for costs that do not belong to Material, Labor, Machinery, Fuel, Repair, or Billing.
+Use this only when the cost does not belong to Material, Labor, Machinery, Fuel, Repair, or Billing.
 
-1. Select a category.
+1. Select category.
 2. Enter a useful description.
-3. Enter total amount.
-4. Enter paid amount.
-5. Select Cash, Bank transfer, UPI, Cheque, or Other.
-6. Add notes/reference information.
-7. Tap **Save expense**.
+3. Enter Total and Paid amounts.
+4. Select payment mode.
+5. Add reference and notes.
+6. Save and check Pending and Status.
 
-Examples: site rent, electricity, water, office expense, transport, permit fee, testing fee, safety expense, and miscellaneous approved cost.
+Examples: site rent, electricity, water, permits, testing, safety, transport, or office expense.
 
-## 10. Material purchases and supplier expense
+## 11. Material purchases and supplier payments
 
-1. Open **Material**.
-2. Select the project.
-3. Enter supplier name.
-4. Enter bill or invoice number.
-5. Enter the amount already paid against this purchase.
-6. For every item, enter material name, unit, quantity, rate, and GST percent.
-7. Tap **Add another material item** for multi-item invoices.
-8. Remove an incorrect item before saving if necessary.
-9. Tap **Save material purchase**.
+### Record a purchase
 
-The app calculates item amount, GST, invoice total, paid amount, pending amount, and payment status.
+1. Open **Material** and select the project.
+2. Select/add supplier.
+3. Enter invoice number/date.
+4. Add material name, unit, quantity, and rate.
+5. Enter taxable value and GST details if applicable.
+6. Check item total and invoice total.
+7. Save.
 
-Common units include bag, kg, tonne, piece, number, meter, square meter, cubic meter, brass, liter, and load. Use one consistent unit for the same material.
+### Record supplier payment
 
-The current Material screen records payment made at purchase time. If an additional supplier payment workflow is enabled in a later UI update, record it against the same supplier, project, and purchase rather than creating a duplicate purchase.
+Only the nominated payment operator should do this until Phase 11.
 
-## 11. Labor cost
+1. Open the correct purchase/supplier.
+2. Read Total, Paid, and Pending.
+3. Choose **Record payment**.
+4. Enter amount, date, payment mode, and bank/UPI/cheque reference.
+5. Confirm the amount does not exceed Pending.
+6. Save once and wait for the update status.
+7. Reopen the purchase and verify Paid, Pending, and Paid/Partial/Pending status.
 
-1. Open **Labor**.
-2. Select the project.
-3. Enter laborer/contractor name.
-4. Select work type:
-   - **Daywise:** number of labor days × daily rate.
-   - **Thika:** fixed job quantity × agreed job rate.
-   - **Hourly:** hours × hourly rate.
-   - **Piecework:** completed pieces/units × rate.
-   - **Custom:** company-defined quantity and unit.
-5. Enter work description.
-6. Enter days/quantity, rate, and paid amount.
-7. Tap **Save labor work**.
+Never press Save repeatedly because the screen appears slow. First check the record and Sync Status.
 
-The app calculates Total, Paid, Pending, and Paid/Partial/Pending status. Paid amount cannot exceed the calculated labor total.
+## 12. Labor work, payment, and advance
 
-The current quick-entry screen includes payment within the labor work entry. Labor payment and advance records are supported by the data layer; use only controls visible in your installed version and do not create a fake work entry merely to represent an advance.
+### Add labor work
 
-## 12. Machinery, fuel, and repair combined entry
+1. Select project and laborer/group.
+2. Select Daywise, Hourly, Thika/Fixed, or Piece work.
+3. Enter days/hours/quantity and rate.
+4. Enter description and date.
+5. Check calculated total.
+6. Save.
 
-1. Open **Machinery**.
-2. Select the project.
-3. Enter machine name.
-4. Select **Own** or **Rental**.
-5. For rental machinery, enter owner name.
-6. Select charge type: Hourly, Daily, Weekly, Monthly, or Fixed.
-7. Enter usage quantity and rate.
-8. Enter the amount already paid for usage.
-9. Enter fuel quantity and fuel rate.
-10. Enter repair parts cost and repair labor cost.
-11. Tap **Save machinery flow**.
+### Labor payment
 
-This single action records linked machinery usage, fuel consumption, and repair cost. Check values carefully before saving so fuel or repair is not entered again in another module.
+1. Confirm the laborer and project.
+2. Read the outstanding amount.
+3. Enter approved payment, date, mode, and reference.
+4. Save once.
+5. Check remaining pending amount.
 
-Delete only the wrong usage entry. Deletion requires confirmation and removes that usage from displayed project totals according to the stored record rules.
+### Labor advance
 
-## 13. Fuel-only entry
+Enter advance amount and recovered amount carefully. The remaining advance balance must agree with the worker's signed/approved record.
 
-Use **Fuel** when fuel must be recorded separately from the combined Machinery entry.
+## 13. Machinery, fuel, rental, and repair
 
-### Add a fuel type
+### Add machinery
 
-1. Enter fuel name, such as Diesel or Petrol.
-2. Enter the default rate.
-3. Tap **Add type**.
+1. Select project and machine.
+2. Mark Own or Rental correctly.
+3. Select Hourly, Daily, or Weekly charge type.
+4. Enter usage and rate.
+5. Add operator/notes where useful.
+6. Check total and save.
 
-### Add fuel usage
+### Fuel
 
-1. Select the project and fuel type.
-2. Enter quantity, rate, and paid amount.
-3. Select where it was used: Machinery, Labor transport, Material transport, Project general, or Other.
-4. If Machinery is selected, select the correct machine.
-5. Enter vehicle name/number, description, and notes when relevant.
-6. Tap **Save fuel**.
+1. Add/select fuel type.
+2. Select machine and project.
+3. Enter quantity, unit rate, date, and supplier/reference.
+4. Check total and save.
 
-The app shows Total, Paid, Pending, and status. Use Edit to correct an entry. Use Delete only after confirming it is wrong.
+### Repair
 
-## 14. Billing, receipts, GST, and estimates
+1. Select machine and project.
+2. Describe the fault and repair.
+3. Enter parts, labor, and total repair cost as requested.
+4. Add workshop/vendor and reference.
+5. Save.
 
-### Create an estimate
+### Rental payment
 
-1. Open **Billing**.
-2. Select the project.
-3. Enter estimate number and title.
-4. Enter item name, quantity, unit, and rate.
-5. Enter estimated material, labor, machinery, and other costs where applicable.
-6. Tap **Save estimate**.
+Only the nominated payment operator records the payment. Confirm the machine, vendor, project, and pending rental before saving.
 
-The app calculates estimated project cost and estimated profit against the agreement value.
+## 14. Estimate, billing, receipts, and GST
 
-### Create a bill
+### Estimate
 
-1. Select the project.
-2. Select Running bill, Final bill, or Advance bill.
-3. Enter bill number and gross bill amount.
-4. Enter GST rate.
-5. Enter TDS, retention, other deductions, and initial received amount.
-6. Select the correct bill status.
-7. Tap **Save bill**.
+1. Select project.
+2. Add estimate title/date.
+3. Add items with quantity and rate.
+4. Verify estimated total and expected profit.
+5. Save.
 
-The app calculates:
+### Running or final bill
 
-- GST amount
-- Total bill amount
-- Net receivable after deductions
-- Received amount
-- Pending amount
-- Paid/Partial/other bill status
+1. Select project and bill type.
+2. Enter bill number/date and gross work value.
+3. Enter GST, TDS, retention, and other applicable deductions.
+4. Check Net Receivable.
+5. Save.
 
-### Record money received
+| Value | Meaning |
+|---|---|
+| Gross bill | Work value before taxes/deductions |
+| GST output | GST charged to the client |
+| TDS/retention | Amount deducted or held |
+| Net receivable | Amount due after calculation |
+| Received | Money recorded as received |
+| Pending | Net receivable minus received |
 
-1. Open **Add receipt**.
-2. Select the pending bill.
-3. Enter received amount.
-4. Enter reference/UTR/cheque information.
-5. Tap **Save receipt**.
+### Record client receipt
 
-The receipt reduces the bill's pending amount. Never record the same bank receipt twice.
+Only the nominated payment operator should record receipts until Phase 11.
 
-### Manual GST entry
+1. Open the correct bill.
+2. Read Net Receivable, Received, and Pending.
+3. Choose **Add receipt**.
+4. Enter amount, date, mode, and reference.
+5. Confirm the amount is not greater than Pending.
+6. Save once and check the update status.
 
-Use manual GST only when an input/output GST adjustment is not already generated from a purchase or bill.
+### GST
 
-1. Select Input GST or Output GST.
-2. Enter taxable amount, GST rate/amount, source information, and notes.
-3. Tap **Save GST**.
-
-- **GST input:** GST paid on eligible purchases/expenses.
-- **GST output:** GST charged through project bills.
-- **Net GST position:** output GST minus input GST.
-
-Ask the accountant before making manual GST adjustments.
+- GST input normally comes from eligible purchases/expenses.
+- GST output normally comes from client bills.
+- Enter manual GST only when an authorized accountant has supporting documents.
+- Never enter the same GST twice through both an automatic bill/purchase and a manual entry.
 
 ## 15. Reports and profit/loss
 
-Open **Reports** to see:
+Reports may include:
 
-- Agreement value
-- Estimated project cost
-- Total material cost
-- Total labor cost
-- Total machinery cost
-- Total fuel cost
-- Total repair cost
-- Other expenses
-- Total actual cost
-- GST input and output
-- Total billed and received
-- Pending receivable
-- Total payable
-- Estimated profit
-- Actual profit/loss by agreement
-- Actual profit/loss by money received
+- Agreement value.
+- Material, labor, machinery, fuel, repair, and other expense.
+- GST input/output.
+- Total billed, received, and pending.
+- Estimated profit/loss.
+- Actual profit/loss by agreement.
+- Actual profit/loss by receipts.
 
-### Meaning of profit figures
+| Figure | Meaning |
+|---|---|
+| Estimated profit/loss | Agreement value minus estimated cost |
+| Actual by agreement | Agreement value minus actual recorded cost |
+| Actual by receipts | Money received minus actual recorded cost |
 
-- **Estimated profit:** agreement value minus estimated project cost.
-- **Actual profit by agreement:** agreement value minus actual recorded cost.
-- **Actual profit by received:** money actually received minus actual recorded cost.
+Choose the correct company and project filter before reading or exporting a report. Export PDF for sharing/printing and Excel for detailed checking.
 
-A project can show profit by agreement but a temporary loss by received when client payments are still pending.
+## 16. Automatic company updates
 
-### Export reports
+### What happens automatically
 
-Authorized users can tap **Export PDF** or **Export Excel**, choose a safe location, and share the file only with approved people. Excel includes both exact stored money and formatted display values.
+| Event | App action |
+|---|---|
+| App starts | Checks access, sends waiting work, and receives allowed changes |
+| User saves data | Durable local queue is created, then foreground sync starts shortly afterward |
+| Another device changes data | Firestore change signal starts the validated download/apply process |
+| Every eight seconds | App checks whether local work is waiting |
+| App returns to foreground | Listener and sync restart |
+| Internet fails | Local work remains saved and retry uses backoff |
+| Company changes | Old listener stops and new company scope starts |
+| App is closed | Foreground automatic update stops; it catches up next time the app opens |
 
-## 16. Sync between devices
+### Status meanings
 
-1. Make sure the correct company account is signed in.
-2. Open **Data sync** from the top sync button or menu.
-3. Review Waiting to send, Sent, Received, Updated locally, Could not update, Needs review, and Last sync.
-4. Tap **Sync now**.
-5. Wait for the completion message before closing the app.
+| Status shown | Meaning | User action |
+|---|---|---|
+| Updating company data | Sending/receiving now | Wait; do not repeatedly save |
+| Company data up to date | Last update completed | Continue work |
+| Offline — retrying | Internet/Firebase unavailable | Continue local work; restore internet |
+| Update needs attention | Failure or conflict needs review | Open Sync Status |
+| Automatic update paused | App is hidden/offline mode/not signed in | Resume/open the app |
 
-If internet is unavailable, local work remains saved. Retry later.
+### Manual Sync now
 
-### Safe daily sync routine
+Use **Sync now** when:
 
-- Morning: sync before entering new work.
-- During the day: save entries normally.
-- Evening: sync after completing entries.
-- Before changing devices: sync the first device, then sync the second device.
+- The owner wants an immediate confirmation.
+- Internet has just returned.
+- A staff permission was changed.
+- The status says attention.
+- Before closing the nominated payment device at day end.
 
-## 17. Items needing attention
+The controller allows only one sync job at a time. Automatic and manual requests are safely combined instead of running over each other.
 
-A conflict occurs when the same record was changed differently on two devices before both changes were synced.
+### Items needing review
 
-Only the Owner or Admin can resolve it.
+Open **Review items needing attention** when two devices changed the same editable record version. Owner/Admin should compare both descriptions and choose the correct business value. Do not guess when the item affects money.
 
-- **Keep this device's copy:** use the record currently stored on this device.
-- **Use the other device's copy:** replace it with the other synced copy.
+## 17. Current financial safety procedure
 
-Before choosing, ask the people who made both entries and compare invoice, bill, date, amount, and project. Do not guess. Developer merge/technical record details appear only in debug builds.
+Automatic updating improves speed but does not yet provide the Phase 11 server-validated immutable financial ledger.
 
-## 18. Backup and restore
+Until Phase 11:
 
-### Create a backup
+1. Nominate one payment operator/device.
+2. Other users send payment information to that operator.
+3. Operator opens the latest bill/purchase and reads Pending.
+4. Operator records the payment once.
+5. Wait for **Company data up to date**.
+6. Verify Paid and Pending.
+7. Other devices may then review the result.
+8. Create the daily backup.
 
-1. Open **Settings**.
-2. Tap **Create backup**.
-3. Choose a safe folder.
-4. Keep at least one copy outside the device.
-5. Include the backup date in your office backup register.
+Do not allow two admins to record payments against the same pending balance simultaneously.
 
-The backup contains company business records. It does not contain passwords, active login credentials, staff access cache, or device credentials.
+## 18. Backup, restore, and export
 
-### Restore a backup
+### Daily backup
 
-1. Confirm you selected the correct company.
-2. Create a new backup of current data first.
-3. Tap **Restore backup**.
-4. Read the warning.
-5. Select the correct JSON backup file.
-6. Confirm restore.
-7. Review the number of added and updated records.
-8. Check Dashboard, Projects, Billing, and Reports.
-9. Sync after verification.
+1. Wait for automatic update or tap **Sync now**.
+2. Open **Settings → Backup and Restore**.
+3. Choose **Create backup**.
+4. Select a safe company-controlled folder.
+5. Use a name containing company and date.
+6. Keep at least one separate copy.
 
-Never restore another company's backup. Restore updates matching records and adds missing records; it does not change current authentication or staff access.
+### Restore
 
-## 19. Daily operating checklist
+1. Create a backup of the current device first.
+2. Confirm the restore file belongs to the correct company/date.
+3. Close other active company devices where practical.
+4. Choose **Restore backup**.
+5. Read the confirmation carefully.
+6. Reopen the app and verify company, projects, totals, and Sync Status.
+
+Do not restore an old backup merely to correct one wrong entry. Correct the entry in the proper module where possible.
+
+## 19. Daily role checklists
 
 ### Site Supervisor
 
-- Sync at the start of the day.
-- Confirm project selection.
-- Enter site diary.
-- Enter material received with invoice details.
-- Enter labor work and paid amount.
-- Enter machinery/fuel/repair once only.
-- Review pending values.
-- Sync at the end of the day.
+- Confirm company and project.
+- Enter daily diary.
+- Enter approved material/labor/machinery/fuel usage.
+- Attach or reference supporting documents.
+- Check the cloud/update status before leaving.
 
-### Accountant
+### Accountant/payment operator
 
-- Check supplier, labor, machinery, fuel, and other pending amounts.
-- Verify bills and receipts against bank/cheque/UPI records.
-- Review GST input/output.
-- Review duplicate invoices and receipts.
-- Export and file reports.
-- Notify the owner of overdue receivables.
+- Confirm automatic update is current before payments.
+- Check invoice/bill and pending amount.
+- Record each approved payment once.
+- Check payment reference and status.
+- Review GST and pending balances.
+- Run **Sync now** at day end.
 
 ### Project Manager
 
-- Review site diaries and project milestones.
-- Check agreement deductions.
-- Compare estimated and actual cost.
-- Review all new expenses.
-- Confirm billing progress and client pending amount.
+- Review progress and delays.
+- Check project costs and pending amounts.
+- Review milestones and billing readiness.
+- Resolve non-financial duplicate/conflicting records with evidence.
 
 ### Owner/Admin
 
-- Review Dashboard and profit/loss.
-- Check staff assignments and access status.
-- Resolve sync items needing attention.
-- Confirm large expenses and manual GST adjustments.
-- Create scheduled backups.
-- Revoke staff immediately when they leave the company.
+- Review Dashboard and unusual amounts.
+- Review staff/project assignments.
+- Check Sync Status and conflicts.
+- Ensure only the nominated operator records payments.
+- Create/verify the daily backup.
 
-## 20. Month-end checklist
+## 20. Month-end procedure
 
-1. Sync all authorized devices.
-2. Confirm every project expense is entered once.
-3. Match material invoices with supplier records.
-4. Match labor and machinery paid amounts with payment proof.
-5. Match bill receipts with bank statements.
-6. Review GST input/output with the accountant.
-7. Review total pending receivable and payable.
+1. Confirm all approved work entries are entered.
+2. Confirm invoices, labor sheets, fuel slips, repairs, and expenses.
+3. Check supplier/labor/machinery pending totals.
+4. Match client receipts with bank/cash records.
+5. Review GST input/output with the accountant.
+6. Review estimated and actual profit/loss.
+7. Resolve attention items.
 8. Export PDF and Excel reports.
-9. Create and safely store a dated backup.
-10. Record any correction in company notes/audit procedure.
+9. Create a month-end backup and store it separately.
 
 ## 21. Common problems
 
-### Save button is disabled
+| Problem | Check first | Safe action |
+|---|---|---|
+| Save button disabled | Required field, negative/invalid value | Correct highlighted fields |
+| Project missing | Active company, project filter, assignment | Switch/filter correctly or ask Owner |
+| Updating for a long time | Internet and Firebase availability | Keep app open; open Sync Status |
+| Offline — retrying | Network connection | Work locally; reconnect and wait |
+| Needs attention | Failed item or version conflict | Review Sync Status with Owner/Admin |
+| Pending looks wrong | Duplicate/missing payment or wrong parent | Check payment list; do not add balancing fake entry |
+| Profit too high | Missing costs or wrong agreement | Check all expense modules |
+| Profit too low | Duplicate expense or wrong amount | Check entries and supporting documents |
+| Staff cannot see project | Assignment or permission | Owner/Admin updates access |
+| Profile image error | Empty/invalid photo URL | Leave blank or use a valid HTTP/HTTPS URL |
+| App was closed during update | Local queue remains saved | Reopen; automatic catch-up starts |
 
-Complete every required field and check that quantity/rate/amount values are valid and non-negative. Paid amount cannot be greater than total amount.
+## 22. Non-negotiable data safety rules
 
-### Project is not visible
-
-Ask the Owner/Admin to assign that project to your staff account, then tap **Refresh access** and sync.
-
-### Sync does not finish
-
-Check internet, confirm the user is active, and retry. Local work remains saved. If Needs review is greater than zero, ask the Owner/Admin to resolve it.
-
-### Pending amount looks wrong
-
-Open the original purchase, labor, machinery, fuel, expense, or bill. Check total and paid amounts and search for duplicate records or receipts.
-
-### Profit looks too high
-
-Usually an expense is missing or recorded under the wrong project. Check Material, Labor, Machinery, Fuel, Repair, and Other expenses.
-
-### Profit looks too low
-
-Check duplicate expenses, wrong quantity/rate, incorrect GST, or an expense entered in both Machinery and Fuel.
-
-### Deleted something by mistake
-
-Stop entering more changes, do not restore an old backup without approval, and contact the Owner/Admin. Use the most recent verified backup only after understanding which newer records may be affected.
-
-## 22. Data safety responsibilities
-
-- The company owns the data; every user must follow company policy.
-- Owners should keep encrypted/off-device backups.
-- Never email private backup files without protection.
-- Remove access immediately for departed staff.
-- Use individual accounts; do not share one login among many people.
-- Keep Windows and Android devices locked and updated.
-- Do not uninstall the app or clear app data before confirming a current backup and completed sync.
+- Never share login passwords.
+- Never give Owner/Admin access casually.
+- Never reuse public/shared invite codes.
+- Never edit the local SQLite file manually.
+- Never remove Firebase configuration or rules from a release build.
+- Never record the same payment twice to make a screen “catch up.”
+- Never use automatic sharing as the only backup.
+- Keep one nominated payment operator until Phase 11.
+- Keep daily and month-end backups.
+- Check company, project, Total, Paid, Pending, and Status before confirming money-related work.
 

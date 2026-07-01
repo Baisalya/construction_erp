@@ -17,6 +17,12 @@ String friendlyErrorMessage(
   if (isMissingStaffLookupIndexError(error)) {
     return missingStaffLookupIndexMessage;
   }
+  if (isMissingInvitationLookupIndexError(error)) {
+    return missingInvitationLookupIndexMessage;
+  }
+  if (isFirestoreIndexSetupError(error)) {
+    return firestoreIndexSetupMessage;
+  }
   final message =
       error.toString().replaceFirst(RegExp(r'^\w*(Exception|Error):\s*'), '');
   final lower = message.toLowerCase();
