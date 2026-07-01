@@ -171,11 +171,10 @@ class FuelRepository implements FuelModuleContract {
   Future<List<FuelEntryRecord>> listFuelEntries(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
-    final whereProject = projectId == null ? '' : 'AND project_id = ?';
+    final scope = projectReadScope(_writeGuard, projectId: projectId);
+    final whereProject = scope.sql;
     final variables = <Variable>[Variable<String>(companyId)];
-    if (projectId != null) {
-      variables.add(Variable<String>(projectId));
-    }
+    variables.addAll(scope.projectIds.map(Variable<String>.new));
     final rows = await database.customSelect(
       '''
       SELECT *

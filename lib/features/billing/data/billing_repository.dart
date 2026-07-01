@@ -159,16 +159,17 @@ class BillingRepository implements BillingModuleContract {
   Future<List<ProjectEstimateRecord>> listEstimates(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
+    final scope = _projectReadScope(projectId);
     final rows = await database.customSelect(
       '''
       SELECT *
       FROM project_estimates
-      WHERE company_id = ? AND is_deleted = 0 ${projectId == null ? '' : 'AND project_id = ?'}
+      WHERE company_id = ? AND is_deleted = 0 ${scope.sql}
       ORDER BY estimate_date DESC, updated_at DESC;
       ''',
       variables: [
         Variable<String>(companyId),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
     ).get();
 
@@ -300,16 +301,17 @@ class BillingRepository implements BillingModuleContract {
   Future<List<ProjectBillRecord>> listBills(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
+    final scope = _projectReadScope(projectId);
     final rows = await database.customSelect(
       '''
       SELECT *
       FROM project_bills
-      WHERE company_id = ? AND is_deleted = 0 ${projectId == null ? '' : 'AND project_id = ?'}
+      WHERE company_id = ? AND is_deleted = 0 ${scope.sql}
       ORDER BY bill_date DESC, updated_at DESC;
       ''',
       variables: [
         Variable<String>(companyId),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
     ).get();
     return rows.map(_billFromRow).toList(growable: false);
@@ -325,7 +327,9 @@ class BillingRepository implements BillingModuleContract {
       ''',
       variables: [Variable<String>(companyId), Variable<String>(billId)],
     ).getSingleOrNull();
-    return row == null ? null : _billFromRow(row);
+    if (row == null) return null;
+    final bill = _billFromRow(row);
+    return _writeGuard.canAccessProject(bill.projectId) ? bill : null;
   }
 
   Future<String> addBillReceipt(
@@ -389,7 +393,7 @@ class BillingRepository implements BillingModuleContract {
         UPDATE project_bills
         SET received_amount_paise = ?, pending_amount_paise = ?, status = ?,
             updated_at = ?, updated_by_user_id = ?, sync_status = 'pendingUpload', version = version + 1
-        WHERE company_id = ? AND id = ? AND is_deleted = 0;
+        WHERE company_id = ? AND id = ? AND project_id = ? AND is_deleted = 0;
         ''',
         [
           Variable<int>(newReceived.paise),
@@ -399,6 +403,7 @@ class BillingRepository implements BillingModuleContract {
           Variable<String>(context.userId),
           Variable<String>(context.companyId),
           Variable<String>(draft.billId.trim()),
+          Variable<String>(draft.projectId.trim()),
         ],
       );
       await _queueDelta(
@@ -458,16 +463,17 @@ class BillingRepository implements BillingModuleContract {
   Future<List<GstEntryRecord>> listGstEntries(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
+    final scope = _projectReadScope(projectId);
     final rows = await database.customSelect(
       '''
       SELECT *
       FROM gst_entries
-      WHERE company_id = ? AND is_deleted = 0 ${projectId == null ? '' : 'AND project_id = ?'}
+      WHERE company_id = ? AND is_deleted = 0 ${scope.sql}
       ORDER BY entry_date DESC, updated_at DESC;
       ''',
       variables: [
         Variable<String>(companyId),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
     ).get();
     return rows.map(_gstFromRow).toList(growable: false);
@@ -476,10 +482,13 @@ class BillingRepository implements BillingModuleContract {
   Future<BillingDashboardSummary> loadBillingSummary(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
-    final agreementValue = projectId == null
-        ? await _sum(companyId, 'projects', 'agreement_final_value_paise')
-        : await _projectMoney(
-            companyId, projectId, 'agreement_final_value_paise');
+    final agreementValue = await _sum(
+      companyId,
+      'projects',
+      'agreement_final_value_paise',
+      projectId: projectId,
+      projectColumn: 'id',
+    );
     final latestEstimateTotal =
         await _latestEstimateTotal(companyId, projectId: projectId);
 
@@ -603,20 +612,28 @@ class BillingRepository implements BillingModuleContract {
 
   Future<Money> _latestEstimateTotal(String companyId,
       {String? projectId}) async {
+    final scope = _projectReadScope(projectId, column: 'estimate.project_id');
     final row = await database.customSelect(
       '''
-      SELECT total_estimated_cost_paise AS total
-      FROM project_estimates
-      WHERE company_id = ? AND is_deleted = 0 ${projectId == null ? '' : 'AND project_id = ?'}
-      ORDER BY estimate_date DESC, updated_at DESC
-      LIMIT 1;
+      SELECT COALESCE(SUM(estimate.total_estimated_cost_paise), 0) AS total
+      FROM project_estimates estimate
+      WHERE estimate.company_id = ? AND estimate.is_deleted = 0 ${scope.sql}
+        AND NOT EXISTS (
+          SELECT 1 FROM project_estimates newer
+          WHERE newer.company_id = estimate.company_id
+            AND newer.project_id = estimate.project_id
+            AND newer.is_deleted = 0
+            AND (newer.estimate_date > estimate.estimate_date
+              OR (newer.estimate_date = estimate.estimate_date
+                AND newer.updated_at > estimate.updated_at))
+        );
       ''',
       variables: [
         Variable<String>(companyId),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
-    ).getSingleOrNull();
-    return Money.fromPaise(row?.data['total'] as int? ?? 0);
+    ).getSingle();
+    return Money.fromPaise(row.data['total'] as int? ?? 0);
   }
 
   Future<Money> _projectMoney(
@@ -634,17 +651,17 @@ class BillingRepository implements BillingModuleContract {
   }
 
   Future<Money> _sum(String companyId, String tableName, String columnName,
-      {String? projectId}) async {
-    final projectFilter = projectId == null ? '' : 'AND project_id = ?';
+      {String? projectId, String projectColumn = 'project_id'}) async {
+    final scope = _projectReadScope(projectId, column: projectColumn);
     final row = await database.customSelect(
       '''
       SELECT COALESCE(SUM($columnName), 0) AS total
       FROM $tableName
-      WHERE company_id = ? AND is_deleted = 0 $projectFilter;
+      WHERE company_id = ? AND is_deleted = 0 ${scope.sql};
       ''',
       variables: [
         Variable<String>(companyId),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
     ).getSingle();
     return Money.fromPaise(row.data['total'] as int? ?? 0);
@@ -653,20 +670,47 @@ class BillingRepository implements BillingModuleContract {
   Future<Money> _sumWithType(String companyId, String tableName,
       String columnName, String typeColumn, String typeValue,
       {String? projectId}) async {
-    final projectFilter = projectId == null ? '' : 'AND project_id = ?';
+    final scope = _projectReadScope(projectId);
     final row = await database.customSelect(
       '''
       SELECT COALESCE(SUM($columnName), 0) AS total
       FROM $tableName
-      WHERE company_id = ? AND is_deleted = 0 AND $typeColumn = ? $projectFilter;
+      WHERE company_id = ? AND is_deleted = 0 AND $typeColumn = ? ${scope.sql};
       ''',
       variables: [
         Variable<String>(companyId),
         Variable<String>(typeValue),
-        if (projectId != null) Variable<String>(projectId)
+        ...scope.variables,
       ],
     ).getSingle();
     return Money.fromPaise(row.data['total'] as int? ?? 0);
+  }
+
+  _ProjectReadScope _projectReadScope(
+    String? projectId, {
+    String column = 'project_id',
+  }) {
+    if (projectId != null) {
+      if (!_writeGuard.canAccessProject(projectId)) {
+        return const _ProjectReadScope('AND 1 = 0', <Variable<String>>[]);
+      }
+      return _ProjectReadScope(
+        'AND $column = ?',
+        <Variable<String>>[Variable<String>(projectId)],
+      );
+    }
+    if (_writeGuard.canAccessAllProjects) {
+      return const _ProjectReadScope('', <Variable<String>>[]);
+    }
+    final ids = _writeGuard.allowedProjectIds;
+    if (ids.isEmpty) {
+      return const _ProjectReadScope('AND 1 = 0', <Variable<String>>[]);
+    }
+    final placeholders = List<String>.filled(ids.length, '?').join(', ');
+    return _ProjectReadScope(
+      'AND $column IN ($placeholders)',
+      ids.map(Variable<String>.new).toList(growable: false),
+    );
   }
 
   Future<List<EstimateItemRecord>> _listEstimateItems(
@@ -825,4 +869,11 @@ class BillingRepository implements BillingModuleContract {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
+}
+
+class _ProjectReadScope {
+  const _ProjectReadScope(this.sql, this.variables);
+
+  final String sql;
+  final List<Variable<String>> variables;
 }

@@ -65,6 +65,7 @@ class SyncDelta {
     return {
       'id': deltaId,
       'company_id': companyId,
+      'project_id': projectId,
       'created_at': createdAt,
       'updated_at': now,
       'created_by_user_id': createdByUserId,
@@ -88,6 +89,7 @@ class SyncDelta {
   Map<String, Object?> toFirestoreMap() => {
         'deltaId': deltaId,
         'companyId': companyId,
+        if (projectId != null) 'projectId': projectId,
         'entityType': entityType,
         'entityId': entityId,
         'operation': operation,
@@ -99,7 +101,6 @@ class SyncDelta {
         'deviceId': deviceId,
         'schemaVersion': schemaVersion,
         'status': status,
-        if (projectId != null) 'projectId': projectId,
       };
 
   factory SyncDelta.fromLocalMap(Map<String, Object?> map) => SyncDelta(
@@ -139,7 +140,9 @@ class SyncDelta {
         status: _s(map['status']),
         errorMessage:
             map['errorMessage'] == null ? null : _s(map['errorMessage']),
-        projectId: map['projectId'] == null ? null : _s(map['projectId']),
+        projectId: map['projectId'] == null && map['project_id'] == null
+            ? null
+            : _s(map['projectId'] ?? map['project_id']),
       );
 
   static int _i(Object? value) {

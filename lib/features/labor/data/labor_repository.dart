@@ -86,7 +86,8 @@ class LaborRepository implements LaborModuleContract {
   Future<void> _applyPaymentToWorkEntries(
       LaborPaymentDraft draft, WriteContext context,
       {required int now}) async {
-    final projectFilter = draft.projectId == null ? '' : 'AND project_id = ?';
+    final scope = projectReadScope(_writeGuard, projectId: draft.projectId);
+    final projectFilter = scope.sql;
     final rows = await database.customSelect(
       '''
       SELECT id, paid_amount_paise, pending_amount_paise
@@ -98,7 +99,7 @@ class LaborRepository implements LaborModuleContract {
       variables: [
         Variable<String>(context.companyId),
         Variable<String>(draft.laborId),
-        if (draft.projectId != null) Variable<String>(draft.projectId!),
+        ...scope.projectIds.map(Variable<String>.new),
       ],
     ).get();
     final available = rows.fold<int>(
@@ -238,11 +239,10 @@ class LaborRepository implements LaborModuleContract {
   Future<List<LaborWorkEntryRecord>> listWorkEntries(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
-    final whereProject = projectId == null ? '' : 'AND project_id = ?';
+    final scope = projectReadScope(_writeGuard, projectId: projectId);
+    final whereProject = scope.sql;
     final variables = <Variable>[Variable<String>(companyId)];
-    if (projectId != null) {
-      variables.add(Variable<String>(projectId));
-    }
+    variables.addAll(scope.projectIds.map(Variable<String>.new));
     final rows = await database.customSelect(
       '''
       SELECT *

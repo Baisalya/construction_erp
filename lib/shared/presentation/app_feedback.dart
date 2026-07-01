@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/firebase/firestore_setup_error.dart';
 import '../../core/value_objects/money.dart';
 
 String paymentStatusLabel({required Money paid, required Money pending}) {
@@ -13,6 +14,9 @@ String friendlyErrorMessage(
   Object error, {
   String fallback = 'Something went wrong. Please try again.',
 }) {
+  if (isMissingStaffLookupIndexError(error)) {
+    return missingStaffLookupIndexMessage;
+  }
   final message =
       error.toString().replaceFirst(RegExp(r'^\w*(Exception|Error):\s*'), '');
   final lower = message.toLowerCase();

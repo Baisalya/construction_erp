@@ -62,6 +62,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onSelected: _selectModule,
                   onRefresh: _refreshAccess,
                   onSync: () => context.push('/sync'),
+                  onSwitchCompany: () => context.push('/company/switcher'),
+                  onSwitchProject: () => context.push('/project/switcher'),
+                  onCompanySettings: () => context.push('/company/settings'),
+                  onAccountSettings: () => context.push('/account/settings'),
                   onSignOut: _signOut,
                 ),
                 const VerticalDivider(width: 1),
@@ -100,6 +104,22 @@ class _AppShellState extends ConsumerState<AppShell> {
             onSync: () {
               Navigator.of(context).pop();
               context.push('/sync');
+            },
+            onSwitchCompany: () {
+              Navigator.of(context).pop();
+              context.push('/company/switcher');
+            },
+            onSwitchProject: () {
+              Navigator.of(context).pop();
+              context.push('/project/switcher');
+            },
+            onCompanySettings: () {
+              Navigator.of(context).pop();
+              context.push('/company/settings');
+            },
+            onAccountSettings: () {
+              Navigator.of(context).pop();
+              context.push('/account/settings');
             },
             onRefresh: () {
               Navigator.of(context).pop();
@@ -179,6 +199,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _refreshAccess() async {
     final user = ref.read(authRepositoryProvider).currentUser;
     if (user == null) return;
+    ref.invalidate(userCompanyMembershipsProvider(user));
+    ref.invalidate(activeWorkspaceProvider(user));
     ref.invalidate(userAccessPolicyProvider(user));
     ref.invalidate(permissionServiceProvider);
     try {
@@ -214,6 +236,10 @@ class _DesktopSidebar extends StatelessWidget {
     required this.onSelected,
     required this.onRefresh,
     required this.onSync,
+    required this.onSwitchCompany,
+    required this.onSwitchProject,
+    required this.onCompanySettings,
+    required this.onAccountSettings,
     required this.onSignOut,
   });
 
@@ -222,6 +248,10 @@ class _DesktopSidebar extends StatelessWidget {
   final ValueChanged<AppModule> onSelected;
   final VoidCallback onRefresh;
   final VoidCallback onSync;
+  final VoidCallback onSwitchCompany;
+  final VoidCallback onSwitchProject;
+  final VoidCallback onCompanySettings;
+  final VoidCallback onAccountSettings;
   final VoidCallback onSignOut;
 
   @override
@@ -280,21 +310,32 @@ class _DesktopSidebar extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.sync),
-              title: const Text('Sync status'),
-              onTap: onSync,
-            ),
-            ListTile(
-              leading: const Icon(Icons.cloud_sync_outlined),
-              title: const Text('Refresh access'),
-              onTap: onRefresh,
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout_outlined),
-              title: const Text('Sign out'),
-              onTap: onSignOut,
-            ),
+            _ShellMenuItem(
+                icon: Icons.sync, title: 'Sync status', onTap: onSync),
+            _ShellMenuItem(
+                icon: Icons.swap_horiz_outlined,
+                title: 'Switch company',
+                onTap: onSwitchCompany),
+            _ShellMenuItem(
+                icon: Icons.filter_alt_outlined,
+                title: 'Select project',
+                onTap: onSwitchProject),
+            _ShellMenuItem(
+                icon: Icons.business_outlined,
+                title: 'Company settings',
+                onTap: onCompanySettings),
+            _ShellMenuItem(
+                icon: Icons.account_circle_outlined,
+                title: 'Account settings',
+                onTap: onAccountSettings),
+            _ShellMenuItem(
+                icon: Icons.cloud_sync_outlined,
+                title: 'Refresh access',
+                onTap: onRefresh),
+            _ShellMenuItem(
+                icon: Icons.logout_outlined,
+                title: 'Sign out',
+                onTap: onSignOut),
           ],
         ),
       ),
@@ -308,6 +349,10 @@ class _MobileDrawer extends StatelessWidget {
     required this.selectedModule,
     required this.onSelected,
     required this.onSync,
+    required this.onSwitchCompany,
+    required this.onSwitchProject,
+    required this.onCompanySettings,
+    required this.onAccountSettings,
     required this.onRefresh,
     required this.onSignOut,
   });
@@ -316,6 +361,10 @@ class _MobileDrawer extends StatelessWidget {
   final AppModule selectedModule;
   final ValueChanged<AppModule> onSelected;
   final VoidCallback onSync;
+  final VoidCallback onSwitchCompany;
+  final VoidCallback onSwitchProject;
+  final VoidCallback onCompanySettings;
+  final VoidCallback onAccountSettings;
   final VoidCallback onRefresh;
   final VoidCallback onSignOut;
 
@@ -340,24 +389,53 @@ class _MobileDrawer extends StatelessWidget {
                 onTap: () => onSelected(module),
               ),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.sync),
-              title: const Text('Sync status'),
-              onTap: onSync,
-            ),
-            ListTile(
-              leading: const Icon(Icons.cloud_sync_outlined),
-              title: const Text('Refresh access'),
-              onTap: onRefresh,
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout_outlined),
-              title: const Text('Sign out'),
-              onTap: onSignOut,
-            ),
+            _ShellMenuItem(
+                icon: Icons.sync, title: 'Sync status', onTap: onSync),
+            _ShellMenuItem(
+                icon: Icons.swap_horiz_outlined,
+                title: 'Switch company',
+                onTap: onSwitchCompany),
+            _ShellMenuItem(
+                icon: Icons.filter_alt_outlined,
+                title: 'Select project',
+                onTap: onSwitchProject),
+            _ShellMenuItem(
+                icon: Icons.business_outlined,
+                title: 'Company settings',
+                onTap: onCompanySettings),
+            _ShellMenuItem(
+                icon: Icons.account_circle_outlined,
+                title: 'Account settings',
+                onTap: onAccountSettings),
+            _ShellMenuItem(
+                icon: Icons.cloud_sync_outlined,
+                title: 'Refresh access',
+                onTap: onRefresh),
+            _ShellMenuItem(
+                icon: Icons.logout_outlined,
+                title: 'Sign out',
+                onTap: onSignOut),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ShellMenuItem extends StatelessWidget {
+  const _ShellMenuItem(
+      {required this.icon, required this.title, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      onTap: onTap,
     );
   }
 }

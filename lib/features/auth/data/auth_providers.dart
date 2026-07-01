@@ -8,6 +8,7 @@ import '../../staff/domain/permission_service.dart';
 import '../../staff/domain/staff_access_policy.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository_contract.dart';
+import '../domain/company_membership.dart';
 import 'firebase_auth_repository.dart';
 import 'firebase_company_repository.dart';
 import 'local_staff_access_repository.dart';
@@ -42,6 +43,16 @@ final companyRepositoryProvider = Provider<FirebaseCompanyRepository>((ref) {
 
 final staffRepositoryProvider = Provider<StaffRepository>((ref) {
   return StaffRepository(database: ref.watch(localDatabaseProvider));
+});
+
+final userCompanyMembershipsProvider =
+    FutureProvider.family<List<CompanyMembership>, AppUser>((ref, user) async {
+  return ref.watch(companyRepositoryProvider).listMembershipsForUser(user);
+});
+
+final activeWorkspaceProvider =
+    FutureProvider.family<ActiveWorkspace?, AppUser>((ref, user) async {
+  return ref.watch(companyRepositoryProvider).readActiveWorkspace(user.uid);
 });
 
 final userAccessPolicyProvider =

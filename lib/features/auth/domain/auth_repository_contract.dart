@@ -10,7 +10,34 @@ abstract interface class AuthRepositoryContract {
     required String password,
   });
 
+  Future<AppUser> registerWithEmailPassword({
+    required String email,
+    required String password,
+    String? displayName,
+  });
+
   Future<AppUser> signInWithGoogle();
+
+  Future<AppUser> linkGoogleToCurrentUser();
+
+  Future<AppUser> linkPasswordToCurrentUser({
+    required String email,
+    required String password,
+  });
+
+  Future<void> unlinkProvider(String providerId);
+
+  Future<List<String>> getLinkedProviders();
+
+  Future<AppUser> updateProfile({
+    required String displayName,
+    String? photoUrl,
+  });
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 
   Future<AppUser> linkPendingGoogleCredentialWithPassword({
     required String password,
@@ -27,6 +54,8 @@ abstract interface class AuthRepositoryContract {
   });
 
   Future<void> reloadSession();
+
+  Future<AppUser?> reloadCurrentUser();
 
   Future<void> signOut();
 }

@@ -33,14 +33,15 @@ class WorkRepository implements WorkModuleContract {
   Future<List<WorkDayRecord>> listWorkDays(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
+    final scope = projectReadScope(_writeGuard, projectId: projectId);
     final rows = await database.customSelect('''
       SELECT * FROM work_days
       WHERE company_id = ? AND is_deleted = 0
-        ${projectId == null ? '' : 'AND project_id = ?'}
+        ${scope.sql}
       ORDER BY work_date DESC, updated_at DESC;
     ''', variables: [
       Variable<String>(companyId),
-      if (projectId != null) Variable<String>(projectId),
+      ...scope.projectIds.map(Variable<String>.new),
     ]).get();
     return rows.map(_workDayFromRow).toList(growable: false);
   }
@@ -116,14 +117,15 @@ class WorkRepository implements WorkModuleContract {
   Future<List<ProjectExpenseRecord>> listExpenses(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
+    final scope = projectReadScope(_writeGuard, projectId: projectId);
     final rows = await database.customSelect('''
       SELECT * FROM project_expenses
       WHERE company_id = ? AND is_deleted = 0
-        ${projectId == null ? '' : 'AND project_id = ?'}
+        ${scope.sql}
       ORDER BY expense_date DESC, updated_at DESC;
     ''', variables: [
       Variable<String>(companyId),
-      if (projectId != null) Variable<String>(projectId),
+      ...scope.projectIds.map(Variable<String>.new),
     ]).get();
     return rows.map(_expenseFromRow).toList(growable: false);
   }

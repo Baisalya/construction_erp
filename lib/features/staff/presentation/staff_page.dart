@@ -454,41 +454,66 @@ class _StaffActions extends ConsumerWidget {
               companyId: policy.staff.companyId,
               staffId: staff.id,
             );
+    var allProjects =
+        await ref.read(staffRepositoryProvider).readCanAccessAllProjects(
+              companyId: policy.staff.companyId,
+              staffId: staff.id,
+            );
     if (!context.mounted) return;
-    final result = await showDialog<Set<String>>(
+    final result = await showDialog<_ProjectAssignmentResult>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text('Projects for ${staff.name}'),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520, maxHeight: 460),
-            child: projects.isEmpty
-                ? const Text('Create a project before assigning staff.')
-                : ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final project in projects)
-                        CheckboxListTile(
-                          value: selected.contains(project.id),
-                          title: Text(project.projectName),
-                          onChanged: (checked) => setState(() {
-                            if (checked == true) {
-                              selected.add(project.id);
-                            } else {
-                              selected.remove(project.id);
-                            }
-                          }),
-                        ),
-                    ],
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                SwitchListTile.adaptive(
+                  value: allProjects,
+                  title: const Text('All-project access'),
+                  subtitle: const Text(
+                    'Allow this staff member to open every project in this company.',
                   ),
+                  onChanged: (value) => setState(() => allProjects = value),
+                ),
+                const Divider(),
+                if (projects.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Create a project before assigning staff.'),
+                  )
+                else
+                  for (final project in projects)
+                    CheckboxListTile(
+                      value: selected.contains(project.id),
+                      title: Text(project.projectName),
+                      onChanged: allProjects
+                          ? null
+                          : (checked) => setState(() {
+                                if (checked == true) {
+                                  selected.add(project.id);
+                                } else {
+                                  selected.remove(project.id);
+                                }
+                              }),
+                    ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel')),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, Set<String>.from(selected)),
+              onPressed: () => Navigator.pop(
+                context,
+                _ProjectAssignmentResult(
+                  projectIds: Set<String>.from(selected),
+                  canAccessAllProjects: allProjects,
+                ),
+              ),
               child: const Text('Save assignments'),
             ),
           ],
@@ -499,10 +524,21 @@ class _StaffActions extends ConsumerWidget {
       await ref.read(staffRepositoryProvider).assignProjects(
             actorPolicy: policy,
             staffId: staff.id,
-            projectIds: result.toList(growable: false),
+            projectIds: result.projectIds.toList(growable: false),
+            canAccessAllProjects: result.canAccessAllProjects,
           );
     }
   }
+}
+
+class _ProjectAssignmentResult {
+  const _ProjectAssignmentResult({
+    required this.projectIds,
+    required this.canAccessAllProjects,
+  });
+
+  final Set<String> projectIds;
+  final bool canAccessAllProjects;
 }
 
 class _InviteStaffDialog extends ConsumerStatefulWidget {

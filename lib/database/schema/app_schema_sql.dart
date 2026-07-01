@@ -1,9 +1,20 @@
 class AppSchemaSql {
   const AppSchemaSql._();
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 5;
+
+  /// Identity/workspace tables are intentionally global to a Firebase user.
+  /// They must not be treated as tenant business tables by schema audits.
+  static const Set<String> globalTableNames = <String>{
+    'app_user_profiles',
+    'company_memberships',
+    'active_workspace',
+  };
 
   static const List<String> tableNames = <String>[
+    'app_user_profiles',
+    'company_memberships',
+    'active_workspace',
     'companies',
     'staff_users',
     'roles',
@@ -51,6 +62,44 @@ class AppSchemaSql {
   ];
 
   static const List<String> createTables = <String>[
+    '''
+    CREATE TABLE IF NOT EXISTS app_user_profiles (
+      uid TEXT PRIMARY KEY,
+      normalized_email TEXT NOT NULL,
+      display_name TEXT,
+      photo_url TEXT,
+      phone TEXT,
+      last_login_at INTEGER,
+      default_company_id TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    ''',
+    '''
+    CREATE TABLE IF NOT EXISTS company_memberships (
+      id TEXT PRIMARY KEY,
+      uid TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      company_name TEXT NOT NULL,
+      role_id TEXT,
+      role_name TEXT,
+      status TEXT NOT NULL,
+      is_owner INTEGER NOT NULL DEFAULT 0,
+      can_access_all_projects INTEGER NOT NULL DEFAULT 0,
+      assigned_project_ids_json TEXT NOT NULL DEFAULT '[]',
+      last_access_at INTEGER,
+      updated_at INTEGER NOT NULL
+    );
+    ''',
+    '''
+    CREATE TABLE IF NOT EXISTS active_workspace (
+      id TEXT PRIMARY KEY,
+      uid TEXT NOT NULL,
+      active_company_id TEXT,
+      active_project_id TEXT,
+      updated_at INTEGER NOT NULL
+    );
+    ''',
     '''
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -137,10 +186,14 @@ class AppSchemaSql {
       version INTEGER NOT NULL DEFAULT 1,
       project_id TEXT NOT NULL,
       staff_id TEXT NOT NULL,
+      firebase_uid TEXT,
+      role_id TEXT,
       role TEXT,
       can_view INTEGER NOT NULL DEFAULT 1,
       can_edit INTEGER NOT NULL DEFAULT 0,
-      can_approve INTEGER NOT NULL DEFAULT 0
+      can_create_entries INTEGER NOT NULL DEFAULT 0,
+      can_approve INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active'
     );
     ''',
     '''
@@ -790,6 +843,7 @@ class AppSchemaSql {
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL,
+      project_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       created_by_user_id TEXT,
@@ -833,6 +887,7 @@ class AppSchemaSql {
     CREATE TABLE IF NOT EXISTS sync_conflicts (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL,
+      project_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       created_by_user_id TEXT,
@@ -889,6 +944,7 @@ class AppSchemaSql {
       role_id TEXT,
       permission_json TEXT NOT NULL DEFAULT '{}',
       assigned_project_ids_json TEXT NOT NULL DEFAULT '[]',
+      can_access_all_projects INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
       cached_at INTEGER NOT NULL
     );
@@ -905,6 +961,12 @@ class AppSchemaSql {
     'CREATE INDEX IF NOT EXISTS idx_project_bills_project ON project_bills(company_id, project_id);',
     'CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(company_id, status);',
     'CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(company_id, entity_type, entity_id);',
+    'CREATE INDEX IF NOT EXISTS idx_sync_queue_project ON sync_queue(company_id, project_id);',
+    'CREATE INDEX IF NOT EXISTS idx_sync_conflicts_project ON sync_conflicts(company_id, project_id);',
+    'CREATE INDEX IF NOT EXISTS idx_app_user_profiles_email ON app_user_profiles(normalized_email);',
+    'CREATE INDEX IF NOT EXISTS idx_company_memberships_uid ON company_memberships(uid);',
+    'CREATE INDEX IF NOT EXISTS idx_company_memberships_company ON company_memberships(company_id);',
+    'CREATE INDEX IF NOT EXISTS idx_project_staff_uid ON project_staff_assignments(company_id, firebase_uid);',
     'CREATE INDEX IF NOT EXISTS idx_sync_applied_delta ON sync_deltas_applied(company_id, delta_id);',
     'CREATE INDEX IF NOT EXISTS idx_staff_access_cache_staff ON staff_access_cache(company_id, staff_id);',
   ];

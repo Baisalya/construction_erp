@@ -10,9 +10,26 @@ import '../../billing/domain/billing_records.dart';
 final profitLossSummaryProvider =
     FutureProvider.autoDispose<BillingDashboardSummary>((ref) async {
   final context = ref.watch(localWriteContextProvider);
-  return ref
-      .watch(billingRepositoryProvider)
-      .loadBillingSummary(context.companyId);
+  final service = ref.watch(permissionServiceProvider).valueOrNull;
+  final firebaseReady = ref.watch(firebaseBootstrapProvider).isReady;
+  final user =
+      firebaseReady ? ref.watch(authRepositoryProvider).currentUser : null;
+  final workspace = user == null
+      ? null
+      : ref.watch(activeWorkspaceProvider(user)).valueOrNull;
+  final policy = service?.policy;
+  final restrictedIds =
+      policy == null || policy.isOwnerOrAdmin || policy.canAccessAllProjects
+          ? null
+          : policy.assignedProjectIds;
+  final projectId = workspace?.activeProjectId ??
+      (restrictedIds != null && restrictedIds.length == 1
+          ? restrictedIds.first
+          : null);
+  return ref.watch(billingRepositoryProvider).loadBillingSummary(
+        context.companyId,
+        projectId: projectId,
+      );
 });
 
 class ReportsPage extends ConsumerWidget {
@@ -155,8 +172,8 @@ class _ReportBody extends StatelessWidget {
             _RowItem('Pending receivable', summary.pendingReceivable.format()),
           ]),
           _ReportCard(title: 'Actual cost', rows: [
-            _RowItem('Estimated project cost',
-                summary.latestEstimateTotal.format()),
+            _RowItem(
+                'Estimated project cost', summary.latestEstimateTotal.format()),
             _RowItem('Material', summary.materialCost.format()),
             _RowItem('Labor', summary.laborCost.format()),
             _RowItem('Machinery', summary.machineryCost.format()),

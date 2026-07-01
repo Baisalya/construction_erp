@@ -5,8 +5,10 @@ import 'package:uuid/uuid.dart';
 import '../../../core/permissions/permission_key.dart';
 import '../../../core/permissions/role_type.dart';
 import '../../../core/permissions/staff_status.dart';
+import '../../../core/security/invitation_code.dart';
 import '../../../database/local_database.dart';
 import '../../auth/data/local_staff_access_repository.dart';
+import '../../auth/domain/app_user_profile.dart';
 import '../domain/default_role_permissions.dart';
 import '../domain/staff_access_policy.dart';
 import '../domain/staff_invitation.dart';
@@ -74,10 +76,21 @@ class StaffRepository implements StaffModuleContract {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final staffId = _uuid.v4();
-    final inviteCode = _uuid.v4().split('-').first.toUpperCase();
-    final inviteId = inviteCode;
+    final inviteCode = normalizeInvitationCode(
+      _uuid.v4().replaceAll('-', '').substring(0, 16),
+    );
+    final inviteId = hashInvitationCode(inviteCode);
     final roleId = role.storageKey;
     final companyId = actorPolicy.staff.companyId;
+    final normalizedEmail = normalizeEmail(email);
+    final roleName = DefaultRolePermissions.roleName(role);
+    final canAccessAllProjects =
+        role == RoleType.owner || role == RoleType.admin;
+    final companyRow = await database.customSelect(
+      'SELECT name FROM companies WHERE id = ? AND is_deleted = 0 LIMIT 1;',
+      variables: [Variable<String>(companyId)],
+    ).getSingleOrNull();
+    final companyName = companyRow?.read<String>('name') ?? 'Company';
 
     final invitation = StaffInvitation(
       id: inviteId,
@@ -87,7 +100,7 @@ class StaffRepository implements StaffModuleContract {
       status: 'pending',
       createdAt: now,
       expiresAt: now + const Duration(days: 14).inMilliseconds,
-      email: email.trim(),
+      email: normalizedEmail,
       phone: _blankToNull(phone),
       assignedProjectIds: assignedProjectIds,
       createdByUid: actorPolicy.staff.firebaseUid,
@@ -110,7 +123,7 @@ class StaffRepository implements StaffModuleContract {
         actorPolicy.staff.firebaseUid,
         Variable<String>(name.trim()),
         _blankToNull(phone),
-        Variable<String>(email.trim()),
+        Variable<String>(normalizedEmail),
         Variable<String>(roleId),
       ],
     );
@@ -124,13 +137,19 @@ class StaffRepository implements StaffModuleContract {
       'inviteId': inviteId,
       'staffId': staffId,
       'companyId': companyId,
-      'email': email.trim(),
+      'companyName': companyName,
+      'email': normalizedEmail,
+      'normalizedEmail': normalizedEmail,
       'phone': _blankToNull(phone),
-      'inviteCode': inviteCode,
+      'inviteCodeHash': inviteId,
       'roleId': roleId,
+      'roleName': roleName,
       'assignedProjectIds': assignedProjectIds,
+      'canAccessAllProjects': canAccessAllProjects,
+      'permissionsVersion': 1,
       'status': 'pending',
       'createdByUid': actorPolicy.staff.firebaseUid,
+      'invitedByUid': actorPolicy.staff.firebaseUid,
       'acceptedByUid': null,
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromMillisecondsSinceEpoch(invitation.expiresAt),
@@ -147,13 +166,17 @@ class StaffRepository implements StaffModuleContract {
       'firebaseUid': null,
       'companyId': companyId,
       'name': name.trim(),
-      'email': email.trim(),
+      'email': normalizedEmail,
+      'normalizedEmail': normalizedEmail,
       'phone': _blankToNull(phone),
       'roleId': roleId,
+      'roleName': roleName,
       'status': StaffStatus.invited.storageKey,
       'assignedProjectIds': assignedProjectIds,
+      'canAccessAllProjects': canAccessAllProjects,
+      'permissionsVersion': 1,
       'permissionsOverride': null,
-      'inviteCode': inviteCode,
+      'invitationId': inviteId,
       'invitedByUid': actorPolicy.staff.firebaseUid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -205,6 +228,26 @@ class StaffRepository implements StaffModuleContract {
       'status': status.storageKey,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    if (remoteStaffId != staffId) {
+      await _firestoreInstance
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .collection('members')
+          .doc(remoteStaffId)
+          .set({
+        'status': status.storageKey,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await _firestoreInstance
+          .collection('user_company_memberships')
+          .doc(remoteStaffId)
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .set({
+        'status': status.storageKey,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> updateStaffRole({
@@ -247,8 +290,30 @@ class StaffRepository implements StaffModuleContract {
         .doc(remoteStaffId)
         .set({
       'roleId': role.storageKey,
+      'roleName': DefaultRolePermissions.roleName(role),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    if (remoteStaffId != staffId) {
+      final data = {
+        'roleId': role.storageKey,
+        'roleName': DefaultRolePermissions.roleName(role),
+        'canAccessAllProjects':
+            role == RoleType.owner || role == RoleType.admin,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      await _firestoreInstance
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .collection('members')
+          .doc(remoteStaffId)
+          .set(data, SetOptions(merge: true));
+      await _firestoreInstance
+          .collection('user_company_memberships')
+          .doc(remoteStaffId)
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .set(data, SetOptions(merge: true));
+    }
   }
 
   Future<void> updateStaffDetails({
@@ -262,6 +327,7 @@ class StaffRepository implements StaffModuleContract {
     if (name.trim().isEmpty || !email.contains('@')) {
       throw ArgumentError('Staff name and valid email are required.');
     }
+    final normalizedEmail = normalizeEmail(email);
     final database = _requireDatabase();
     await database.ensureSchema();
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -273,7 +339,7 @@ class StaffRepository implements StaffModuleContract {
       ''',
       variables: [
         Variable<String>(name.trim()),
-        Variable<String>(email.trim()),
+        Variable<String>(normalizedEmail),
         Variable<String>(_blankToNull(phone) ?? ''),
         Variable<int>(now),
         Variable<String>(actorPolicy.staff.firebaseUid ?? actorPolicy.staff.id),
@@ -293,7 +359,8 @@ class StaffRepository implements StaffModuleContract {
         .doc(remoteStaffId)
         .set({
       'name': name.trim(),
-      'email': email.trim(),
+      'email': normalizedEmail,
+      'normalizedEmail': normalizedEmail,
       'phone': _blankToNull(phone),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -303,11 +370,24 @@ class StaffRepository implements StaffModuleContract {
     required StaffAccessPolicy actorPolicy,
     required String staffId,
     required List<String> projectIds,
+    bool canAccessAllProjects = false,
   }) async {
     actorPolicy.requirePermission(PermissionKey.staffManagement);
     final database = _requireDatabase();
     await database.ensureSchema();
     final now = DateTime.now().millisecondsSinceEpoch;
+    final staffRow = await database.customSelect(
+      '''
+      SELECT firebase_uid, role_id FROM staff_users
+      WHERE company_id = ? AND id = ? AND is_deleted = 0 LIMIT 1;
+      ''',
+      variables: [
+        Variable<String>(actorPolicy.staff.companyId),
+        Variable<String>(staffId),
+      ],
+    ).getSingleOrNull();
+    final firebaseUid = staffRow?.readNullable<String>('firebase_uid');
+    final roleId = staffRow?.readNullable<String>('role_id');
     await database.transaction(() async {
       await database.customUpdate(
         '''
@@ -329,8 +409,9 @@ class StaffRepository implements StaffModuleContract {
           INSERT OR REPLACE INTO project_staff_assignments (
             id, company_id, created_at, updated_at, created_by_user_id,
             updated_by_user_id, is_deleted, sync_status, version, project_id,
-            staff_id, role, can_view, can_edit, can_approve
-          ) VALUES (?, ?, ?, ?, ?, ?, 0, 'localOnly', 1, ?, ?, NULL, 1, 1, 0);
+            staff_id, firebase_uid, role_id, role, can_view, can_edit,
+            can_create_entries, can_approve, status
+          ) VALUES (?, ?, ?, ?, ?, ?, 0, 'localOnly', 1, ?, ?, ?, ?, NULL, 1, 1, 1, 0, 'active');
           ''',
           [
             Variable<String>('${staffId}_$projectId'),
@@ -343,6 +424,8 @@ class StaffRepository implements StaffModuleContract {
                 actorPolicy.staff.firebaseUid ?? actorPolicy.staff.id),
             Variable<String>(projectId),
             Variable<String>(staffId),
+            firebaseUid,
+            roleId,
           ],
         );
       }
@@ -351,6 +434,7 @@ class StaffRepository implements StaffModuleContract {
       companyId: actorPolicy.staff.companyId,
       staffId: staffId,
       projectIds: projectIds,
+      canAccessAllProjects: canAccessAllProjects,
     );
     final remoteStaffId = await _remoteStaffDocumentId(
       actorPolicy.staff.companyId,
@@ -363,8 +447,47 @@ class StaffRepository implements StaffModuleContract {
         .doc(remoteStaffId)
         .set({
       'assignedProjectIds': projectIds,
+      'canAccessAllProjects': canAccessAllProjects,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    if (remoteStaffId != staffId) {
+      final data = {
+        'assignedProjectIds': projectIds,
+        'canAccessAllProjects': canAccessAllProjects,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      await _firestoreInstance
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .collection('members')
+          .doc(remoteStaffId)
+          .set(data, SetOptions(merge: true));
+      await _firestoreInstance
+          .collection('user_company_memberships')
+          .doc(remoteStaffId)
+          .collection('companies')
+          .doc(actorPolicy.staff.companyId)
+          .set(data, SetOptions(merge: true));
+    }
+  }
+
+  Future<bool> readCanAccessAllProjects({
+    required String companyId,
+    required String staffId,
+  }) async {
+    final database = _requireDatabase();
+    await database.ensureSchema();
+    final row = await database.customSelect(
+      '''
+      SELECT can_access_all_projects
+      FROM staff_access_cache
+      WHERE company_id = ? AND staff_id = ? AND is_deleted = 0
+      ORDER BY cached_at DESC
+      LIMIT 1;
+      ''',
+      variables: [Variable<String>(companyId), Variable<String>(staffId)],
+    ).getSingleOrNull();
+    return row?.readNullable<int>('can_access_all_projects') == 1;
   }
 
   Future<Set<String>> listAssignedProjectIds({

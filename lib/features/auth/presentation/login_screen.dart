@@ -115,7 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.login_outlined),
-                          label: const Text('Login'),
+                          label: const Text('Sign in with Email'),
                         ),
                         const SizedBox(height: 14),
                         const Row(

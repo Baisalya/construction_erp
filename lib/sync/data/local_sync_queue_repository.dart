@@ -34,14 +34,15 @@ class LocalSyncQueueRepository {
     final data = delta.toLocalMap(localStatus: status);
     await _database.customStatement('''
       INSERT ${replace ? 'OR REPLACE' : 'OR IGNORE'} INTO sync_queue (
-        id, company_id, created_at, updated_at, created_by_user_id,
+        id, company_id, project_id, created_at, updated_at, created_by_user_id,
         updated_by_user_id, is_deleted, sync_status, version, entity_type,
         entity_id, operation, payload_json, base_version, new_version,
         device_id, schema_version, status, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', [
       data['id'],
       data['company_id'],
+      data['project_id'],
       data['created_at'],
       data['updated_at'],
       data['created_by_user_id'],
@@ -227,14 +228,18 @@ class LocalSyncQueueRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _database.customStatement('''
       INSERT OR REPLACE INTO sync_conflicts (
-        id, company_id, created_at, updated_at, created_by_user_id,
+        id, company_id, project_id, created_at, updated_at, created_by_user_id,
         updated_by_user_id, is_deleted, sync_status, version, entity_type,
         entity_id, remote_delta_id, remote_operation, local_payload_json,
         remote_payload_json, local_version, remote_version, status, resolution
-      ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, 0,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )
     ''', [
       '${delta.deltaId}_conflict',
       delta.companyId,
+      delta.projectId,
       now,
       now,
       delta.createdByUserId,

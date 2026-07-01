@@ -68,6 +68,7 @@ class StaffProfile {
     return switch (value) {
       'active' => StaffStatus.active,
       'inactive' => StaffStatus.inactive,
+      'suspended' => StaffStatus.suspended,
       'revoked' => StaffStatus.revoked,
       'invited' => StaffStatus.invited,
       _ => StaffStatus.invited,

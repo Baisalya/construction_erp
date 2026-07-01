@@ -229,11 +229,10 @@ class MaterialRepository implements MaterialModuleContract {
   Future<List<MaterialPurchaseRecord>> listPurchases(String companyId,
       {String? projectId}) async {
     await database.ensureSchema();
-    final whereProject = projectId == null ? '' : 'AND project_id = ?';
+    final scope = projectReadScope(_writeGuard, projectId: projectId);
+    final whereProject = scope.sql;
     final variables = <Variable>[Variable<String>(companyId)];
-    if (projectId != null) {
-      variables.add(Variable<String>(projectId));
-    }
+    variables.addAll(scope.projectIds.map(Variable<String>.new));
     final rows = await database.customSelect(
       '''
       SELECT *
@@ -291,8 +290,13 @@ class MaterialRepository implements MaterialModuleContract {
         ],
       );
       if (_clean(draft.purchaseId) != null) {
-        await _applyPaymentToPurchase(draft.purchaseId!, draft.amount, context,
-            now: now);
+        await _applyPaymentToPurchase(
+          draft.purchaseId!,
+          draft.amount,
+          context,
+          expectedProjectId: draft.projectId,
+          now: now,
+        );
       } else {
         await _applyPaymentAcrossPurchases(draft, context, now: now);
       }
@@ -310,10 +314,10 @@ class MaterialRepository implements MaterialModuleContract {
 
   Future<void> _applyPaymentToPurchase(
       String purchaseId, Money amount, WriteContext context,
-      {required int now}) async {
+      {String? expectedProjectId, required int now}) async {
     final row = await database.customSelect(
       '''
-      SELECT id, paid_amount_paise, total_amount_paise
+      SELECT id, project_id, paid_amount_paise, total_amount_paise
       FROM material_purchases
       WHERE company_id = ? AND id = ? AND is_deleted = 0
       LIMIT 1;
@@ -325,6 +329,11 @@ class MaterialRepository implements MaterialModuleContract {
     ).getSingleOrNull();
     if (row == null) {
       throw StateError('Material purchase not found.');
+    }
+    final purchaseProjectId = row.read<String>('project_id');
+    if (!_writeGuard.canAccessProject(purchaseProjectId) ||
+        (expectedProjectId != null && expectedProjectId != purchaseProjectId)) {
+      throw const ProjectAccessDeniedException('material_purchase');
     }
     final total = row.data['total_amount_paise'] as int;
     final currentPaid = row.data['paid_amount_paise'] as int;
@@ -367,7 +376,8 @@ class MaterialRepository implements MaterialModuleContract {
   Future<void> _applyPaymentAcrossPurchases(
       SupplierPaymentDraft draft, WriteContext context,
       {required int now}) async {
-    final projectFilter = draft.projectId == null ? '' : 'AND project_id = ?';
+    final scope = projectReadScope(_writeGuard, projectId: draft.projectId);
+    final projectFilter = scope.sql;
     final rows = await database.customSelect(
       '''
       SELECT id, paid_amount_paise, pending_amount_paise
@@ -379,7 +389,7 @@ class MaterialRepository implements MaterialModuleContract {
       variables: [
         Variable<String>(context.companyId),
         Variable<String>(draft.supplierId),
-        if (draft.projectId != null) Variable<String>(draft.projectId!),
+        ...scope.projectIds.map(Variable<String>.new),
       ],
     ).get();
     final available = rows.fold<int>(

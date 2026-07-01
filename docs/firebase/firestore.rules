@@ -13,10 +13,29 @@ service cloud.firestore {
       return /databases/$(database)/documents/companies/$(companyId)/staff/$(request.auth.uid);
     }
 
+    function currentMemberPath(companyId) {
+      return /databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid);
+    }
+
     function activeStaff(companyId) {
       return signedIn()
-        && exists(currentStaffPath(companyId))
-        && get(currentStaffPath(companyId)).data.status == 'active';
+        && (
+          (exists(currentStaffPath(companyId))
+            && get(currentStaffPath(companyId)).data.status == 'active')
+          || (exists(currentMemberPath(companyId))
+            && get(currentMemberPath(companyId)).data.status == 'active')
+        );
+    }
+
+    function activeMember(companyId) {
+      return signedIn()
+        && exists(currentMemberPath(companyId))
+        && get(currentMemberPath(companyId)).data.status == 'active';
+    }
+
+    function canAccessAllProjects(companyId) {
+      return activeMember(companyId)
+        && get(currentMemberPath(companyId)).data.canAccessAllProjects == true;
     }
 
     function isOwner(companyId) {
@@ -31,11 +50,10 @@ service cloud.firestore {
     }
 
     function hasPermission(companyId, permissionKey) {
-      let staff = get(currentStaffPath(companyId)).data;
-      let permissionPath = /databases/$(database)/documents/companies/$(companyId)/role_permissions/$(staff.roleId);
       return activeStaff(companyId)
-        && exists(permissionPath)
-        && get(permissionPath).data.permissions[permissionKey] == true;
+        && exists(currentStaffPath(companyId))
+        && exists(/databases/$(database)/documents/companies/$(companyId)/role_permissions/$(get(currentStaffPath(companyId)).data.roleId))
+        && get(/databases/$(database)/documents/companies/$(companyId)/role_permissions/$(get(currentStaffPath(companyId)).data.roleId)).data.permissions[permissionKey] == true;
     }
 
     function canManageStaff(companyId) {
@@ -44,6 +62,7 @@ service cloud.firestore {
 
     function isAdmin(companyId) {
       return activeStaff(companyId)
+        && exists(currentStaffPath(companyId))
         && get(currentStaffPath(companyId)).data.roleId == 'admin';
     }
 
@@ -106,6 +125,7 @@ service cloud.firestore {
       let data = request.resource.data;
       let staff = get(currentStaffPath(companyId)).data;
       return !data.keys().hasAny(['projectId'])
+        || canAccessAllProjects(companyId)
         || staff.assignedProjectIds.hasAny([data.projectId]);
     }
 
@@ -173,6 +193,7 @@ service cloud.firestore {
     function assignedProjectAllowsRead(companyId) {
       let staff = get(currentStaffPath(companyId)).data;
       return !resource.data.keys().hasAny(['projectId'])
+        || canAccessAllProjects(companyId)
         || staff.assignedProjectIds.hasAny([resource.data.projectId]);
     }
 
@@ -190,12 +211,86 @@ service cloud.firestore {
       return /databases/$(database)/documents/companies/$(companyId)/invitations/$(inviteCode);
     }
 
-    function matchesInvite(companyId, inviteCode) {
+    function invitationEmailMatches(data) {
       return signedIn()
-        && inviteCode is string
-        && exists(invitePath(companyId, inviteCode))
-        && get(invitePath(companyId, inviteCode)).data.status == 'pending'
-        && get(invitePath(companyId, inviteCode)).data.email == request.auth.token.email;
+        && request.auth.token.email is string
+        && (data.normalizedEmail == request.auth.token.email
+          || data.email == request.auth.token.email);
+    }
+
+    function matchesInvite(companyId, invitationId) {
+      return signedIn()
+        && invitationId is string
+        && exists(invitePath(companyId, invitationId))
+        && get(invitePath(companyId, invitationId)).data.status == 'pending'
+        && get(invitePath(companyId, invitationId)).data.expiresAt > request.time
+        && invitationEmailMatches(get(invitePath(companyId, invitationId)).data);
+    }
+
+    function validInvitedMemberCreate(companyId, uid) {
+      let data = request.resource.data;
+      let invite = get(invitePath(companyId, data.invitationId)).data;
+      return request.auth.uid == uid
+        && matchesInvite(companyId, data.invitationId)
+        && data.uid == uid
+        && data.status == 'active'
+        && data.isOwner == false
+        && data.normalizedEmail == invite.normalizedEmail
+        && data.roleId == invite.roleId
+        && data.roleName == invite.roleName
+        && data.canAccessAllProjects == invite.canAccessAllProjects
+        && data.assignedProjectIds == invite.assignedProjectIds;
+    }
+
+    function validOwnMembershipIndex(companyId, uid) {
+      let member = getAfter(/databases/$(database)/documents/companies/$(companyId)/members/$(uid)).data;
+      let data = request.resource.data;
+      return signedIn()
+        && request.auth.uid == uid
+        && member.uid == uid
+        && member.status == 'active'
+        && data.keys().hasOnly([
+          'companyId', 'companyName', 'roleName', 'roleId', 'status',
+          'isOwner', 'canAccessAllProjects', 'assignedProjectIds',
+          'lastAccessAt', 'updatedAt'
+        ])
+        && data.companyId == companyId
+        && data.roleId == member.roleId
+        && data.roleName == member.roleName
+        && data.status == member.status
+        && data.isOwner == member.isOwner
+        && data.canAccessAllProjects == member.canAccessAllProjects
+        && data.assignedProjectIds == member.assignedProjectIds;
+    }
+
+    match /app_users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'normalizedEmail', 'displayName', 'photoUrl', 'phone',
+          'createdAt', 'updatedAt', 'lastLoginAt', 'linkedProviders',
+          'defaultCompanyId', 'status'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'active';
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'normalizedEmail', 'displayName', 'photoUrl', 'phone', 'updatedAt',
+          'lastLoginAt', 'linkedProviders', 'defaultCompanyId'
+        ]);
+      allow delete: if false;
+    }
+
+    match /user_company_memberships/{uid}/companies/{companyId} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if canManageStaff(companyId)
+        || validOwnMembershipIndex(companyId, uid);
+      allow delete: if false;
     }
 
     match /companies/{companyId} {
@@ -205,10 +300,27 @@ service cloud.firestore {
       allow update: if canManageStaff(companyId);
       allow delete: if false;
 
+
+      match /members/{uid} {
+        allow read: if activeStaff(companyId)
+          && (request.auth.uid == uid || canManageStaff(companyId));
+        allow create: if canManageStaff(companyId)
+          || isOwnerAfter(companyId)
+          || validInvitedMemberCreate(companyId, uid);
+        allow update: if canManageStaff(companyId)
+          || (request.auth.uid == uid
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.roleId == resource.data.roleId
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['lastAccessAt', 'updatedAt']));
+        allow delete: if false;
+      }
+
       match /staff/{staffDocId} {
         allow read: if canManageStaff(companyId)
           || (signedIn() && resource.data.firebaseUid == request.auth.uid)
-          || matchesInvite(companyId, resource.data.inviteCode);
+          || matchesInvite(companyId, resource.data.invitationId);
         allow create: if (
             isOwnerAfter(companyId)
             && staffDocId == request.auth.uid
@@ -219,11 +331,11 @@ service cloud.firestore {
             staffDocId == request.auth.uid
             && request.resource.data.firebaseUid == request.auth.uid
             && request.resource.data.status == 'active'
-            && matchesInvite(companyId, request.resource.data.inviteCode)
+            && matchesInvite(companyId, request.resource.data.invitationId)
           ) || canManageStaff(companyId);
         allow update: if canManageStaff(companyId)
           || (
-            matchesInvite(companyId, resource.data.inviteCode)
+            matchesInvite(companyId, resource.data.invitationId)
             && resource.data.status == 'invited'
             && request.resource.data.status == 'accepted'
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -234,13 +346,13 @@ service cloud.firestore {
 
       match /invitations/{inviteCode} {
         allow read: if canManageStaff(companyId)
-          || (signedIn() && resource.data.email == request.auth.token.email);
+          || invitationEmailMatches(resource.data);
         allow create: if canManageStaff(companyId);
         allow update: if canManageStaff(companyId)
           || (
             signedIn()
             && resource.data.status == 'pending'
-            && resource.data.email == request.auth.token.email
+            && invitationEmailMatches(resource.data)
             && request.resource.data.status == 'accepted'
             && request.resource.data.acceptedByUid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -276,6 +388,7 @@ service cloud.firestore {
       // as a normal Firestore document.
       match /sync_deltas/{deltaId} {
         allow read: if isOwner(companyId) || isAdmin(companyId)
+          || canAccessAllProjects(companyId)
           || canReadDelta(companyId);
         allow create: if activeStaff(companyId)
           && deltaShapeIsValid(companyId, deltaId)

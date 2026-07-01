@@ -100,7 +100,7 @@ class SyncPermissionGuard {
     if (policy == null) {
       throw StateError('No saved staff access exists for this user.');
     }
-    if (policy.isOwnerOrAdmin) {
+    if (policy.isOwnerOrAdmin || policy.canAccessAllProjects) {
       return const SyncDownloadScope(allCompanyData: true);
     }
     final entities = <String>{};
@@ -119,8 +119,10 @@ class SyncPermissionGuard {
   }
 
   Future<StaffAccessPolicy?> _policy(SyncContext context) async {
-    final policy =
-        await _accessRepository.readCachedPolicyForUid(context.userId);
+    final policy = await _accessRepository.readCachedPolicyForUidAndCompany(
+      firebaseUid: context.userId,
+      companyId: context.companyId,
+    );
     if (policy == null) return null;
     if (context.staffId != null && policy.staff.id != context.staffId) {
       return null;

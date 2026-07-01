@@ -15,6 +15,22 @@ class DashboardKpis {
     required this.gstOutput,
   });
 
+  factory DashboardKpis.empty() {
+    return const DashboardKpis(
+      activeTenders: 0,
+      selectedTenders: 0,
+      runningProjects: 0,
+      pendingSupplier: Money.zero,
+      pendingLabor: Money.zero,
+      pendingMachinery: Money.zero,
+      totalProjectValue: Money.zero,
+      totalExpense: Money.zero,
+      profitByAgreement: Money.zero,
+      gstInput: Money.zero,
+      gstOutput: Money.zero,
+    );
+  }
+
   final int activeTenders;
   final int selectedTenders;
   final int runningProjects;

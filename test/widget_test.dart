@@ -93,7 +93,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Construction ERP Overview'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Fuel'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Fuel'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('Reports'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Reports'), findsWidgets);
     expect(tester.takeException(), isNull);
   });

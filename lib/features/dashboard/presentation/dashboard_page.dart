@@ -2,12 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../features/auth/data/auth_providers.dart';
 import '../../../shared/presentation/app_feedback.dart';
 import '../domain/dashboard_kpis.dart';
 
 final dashboardKpisProvider = FutureProvider.autoDispose<DashboardKpis>((ref) {
   final context = ref.watch(localWriteContextProvider);
-  return ref.watch(dashboardRepositoryProvider).load(context.companyId);
+  final service = ref.watch(permissionServiceProvider).valueOrNull;
+  final firebaseReady = ref.watch(firebaseBootstrapProvider).isReady;
+  final user =
+      firebaseReady ? ref.watch(authRepositoryProvider).currentUser : null;
+  final workspace = user == null
+      ? null
+      : ref.watch(activeWorkspaceProvider(user)).valueOrNull;
+  final policy = service?.policy;
+  final allowedProjectIds =
+      policy == null || policy.isOwnerOrAdmin || policy.canAccessAllProjects
+          ? null
+          : policy.assignedProjectIds;
+  return ref.watch(dashboardRepositoryProvider).load(
+        context.companyId,
+        allowedProjectIds: allowedProjectIds,
+        activeProjectId: workspace?.activeProjectId,
+      );
 });
 
 class DashboardPage extends ConsumerWidget {

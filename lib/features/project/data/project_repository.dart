@@ -43,19 +43,20 @@ class ProjectRepository implements ProjectModuleContract {
   @override
   Future<List<ProjectRecord>> listProjects(String companyId) async {
     await database.ensureSchema();
+    final scope = projectReadScope(_writeGuard, column: 'id');
     final rows = await database.customSelect(
       '''
       SELECT *
       FROM projects
-      WHERE company_id = ? AND is_deleted = 0
+      WHERE company_id = ? AND is_deleted = 0 ${scope.sql}
       ORDER BY updated_at DESC, project_name COLLATE NOCASE;
       ''',
-      variables: [Variable<String>(companyId)],
+      variables: [
+        Variable<String>(companyId),
+        ...scope.projectIds.map(Variable<String>.new),
+      ],
     ).get();
-    return rows
-        .map(_projectFromRow)
-        .where((project) => _writeGuard.canAccessProject(project.id))
-        .toList(growable: false);
+    return rows.map(_projectFromRow).toList(growable: false);
   }
 
   @override

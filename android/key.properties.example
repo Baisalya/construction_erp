@@ -1,5 +1,6 @@
-# Copy this file to android/key.properties and keep the real file private.
-storePassword=replace-with-private-store-password
-keyPassword=replace-with-private-key-password
-keyAlias=upload
-storeFile=C:\\secure\\path\\construction-erp-upload.jks
+# Copy this file to android/key.properties after creating your private upload
+# keystore. Never commit the real key.properties or keystore.
+storePassword=YOUR_PRIVATE_STORE_PASSWORD
+keyPassword=YOUR_PRIVATE_KEY_PASSWORD
+keyAlias=construction_erp_upload
+storeFile=../upload-keystore.jks

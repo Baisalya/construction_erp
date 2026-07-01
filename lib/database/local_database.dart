@@ -16,6 +16,28 @@ class ConstructionDatabase extends GeneratedDatabase {
   int get schemaVersion => AppSchemaSql.schemaVersion;
 
   @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (_) async {
+          await transaction(() => _applySchemaChanges(0));
+        },
+        onUpgrade: (_, from, to) async {
+          if (from > to) {
+            throw StateError(
+              'Database downgrade from version $from to $to is not supported. '
+              'Install a newer app version to keep the local ERP data safe.',
+            );
+          }
+          await transaction(() => _applySchemaChanges(from));
+        },
+        beforeOpen: (_) async {
+          for (final pragma in AppSchemaSql.pragmas) {
+            await customStatement(pragma);
+          }
+          _schemaReady = true;
+        },
+      );
+
+  @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       const <TableInfo<Table, Object?>>[];
 
@@ -38,53 +60,83 @@ class ConstructionDatabase extends GeneratedDatabase {
     if (_schemaReady) {
       return;
     }
-    for (final pragma in AppSchemaSql.pragmas) {
-      await customStatement(pragma);
+
+    // The first statement opens the connection. Drift then runs [migration]
+    // before this query is executed, including upgrades of existing installs.
+    await customSelect('SELECT 1 AS schema_ready;').getSingle();
+  }
+
+  Future<void> _applySchemaChanges(int storedVersion) async {
+    for (final statement in AppSchemaSql.createTables) {
+      await customStatement(statement);
     }
-    final versionRow = await customSelect('PRAGMA user_version;').getSingle();
-    final storedVersion = versionRow.read<int>('user_version');
-    if (storedVersion > AppSchemaSql.schemaVersion) {
-      throw StateError(
-          'Database version $storedVersion is newer than supported version '
-          '${AppSchemaSql.schemaVersion}.');
+    if (storedVersion < 2) {
+      await _addColumnIfMissing(
+        'sync_queue',
+        'base_version',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        'sync_queue',
+        'new_version',
+        'INTEGER NOT NULL DEFAULT 1',
+      );
     }
-    await transaction(() async {
-      for (final statement in AppSchemaSql.createTables) {
-        await customStatement(statement);
-      }
-      if (storedVersion < 2) {
-        await _addColumnIfMissing(
-          'sync_queue',
-          'base_version',
-          'INTEGER NOT NULL DEFAULT 0',
-        );
-        await _addColumnIfMissing(
-          'sync_queue',
-          'new_version',
-          'INTEGER NOT NULL DEFAULT 1',
-        );
-      }
-      if (storedVersion < 3) {
-        await _addColumnIfMissing(
-          'sync_conflicts',
-          'remote_delta_id',
-          'TEXT',
-        );
-        await _addColumnIfMissing(
-          'sync_conflicts',
-          'remote_operation',
-          'TEXT',
-        );
-      }
-      for (final statement in AppSchemaSql.createIndexes) {
-        await customStatement(statement);
-      }
-      // Set this only after every schema statement succeeds so a failed setup
-      // is never reported as a completed migration.
-      await customStatement(
-          'PRAGMA user_version = ${AppSchemaSql.schemaVersion};');
-    });
-    _schemaReady = true;
+    if (storedVersion < 3) {
+      await _addColumnIfMissing(
+        'sync_conflicts',
+        'remote_delta_id',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        'sync_conflicts',
+        'remote_operation',
+        'TEXT',
+      );
+    }
+
+    if (storedVersion < 4) {
+      await _addColumnIfMissing(
+        'project_staff_assignments',
+        'firebase_uid',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        'project_staff_assignments',
+        'role_id',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        'project_staff_assignments',
+        'can_create_entries',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        'project_staff_assignments',
+        'status',
+        "TEXT NOT NULL DEFAULT 'active'",
+      );
+      await _addColumnIfMissing(
+        'staff_access_cache',
+        'can_access_all_projects',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        'sync_queue',
+        'project_id',
+        'TEXT',
+      );
+    }
+    if (storedVersion < 5) {
+      await _addColumnIfMissing(
+        'sync_conflicts',
+        'project_id',
+        'TEXT',
+      );
+    }
+    for (final statement in AppSchemaSql.createIndexes) {
+      await customStatement(statement);
+    }
   }
 
   Future<void> _addColumnIfMissing(

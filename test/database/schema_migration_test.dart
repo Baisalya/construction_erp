@@ -27,37 +27,37 @@ void main() {
 
   test('version 1 sync queue migrates to version 2 without data loss',
       () async {
-    final database = ConstructionDatabase(NativeDatabase.memory());
+    final database = _legacyDatabase(1, [
+      '''
+        CREATE TABLE sync_queue (
+          id TEXT PRIMARY KEY,
+          company_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          created_by_user_id TEXT,
+          updated_by_user_id TEXT,
+          is_deleted INTEGER NOT NULL DEFAULT 0,
+          sync_status TEXT NOT NULL DEFAULT 'localOnly',
+          version INTEGER NOT NULL DEFAULT 1,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          operation TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          device_id TEXT NOT NULL,
+          schema_version INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pendingUpload',
+          error_message TEXT
+        )
+      ''',
+      '''
+        INSERT INTO sync_queue (
+          id, company_id, created_at, updated_at, entity_type, entity_id,
+          operation, payload_json, device_id, schema_version
+        ) VALUES ('old-delta', 'company-1', 1, 1, 'projects', 'project-1',
+          'insert', '{}', 'device-1', 1)
+      ''',
+    ]);
     addTearDown(database.close);
-    await database.customStatement('''
-      CREATE TABLE sync_queue (
-        id TEXT PRIMARY KEY,
-        company_id TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        created_by_user_id TEXT,
-        updated_by_user_id TEXT,
-        is_deleted INTEGER NOT NULL DEFAULT 0,
-        sync_status TEXT NOT NULL DEFAULT 'localOnly',
-        version INTEGER NOT NULL DEFAULT 1,
-        entity_type TEXT NOT NULL,
-        entity_id TEXT NOT NULL,
-        operation TEXT NOT NULL,
-        payload_json TEXT NOT NULL,
-        device_id TEXT NOT NULL,
-        schema_version INTEGER NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pendingUpload',
-        error_message TEXT
-      )
-    ''');
-    await database.customStatement('''
-      INSERT INTO sync_queue (
-        id, company_id, created_at, updated_at, entity_type, entity_id,
-        operation, payload_json, device_id, schema_version
-      ) VALUES ('old-delta', 'company-1', 1, 1, 'projects', 'project-1',
-        'insert', '{}', 'device-1', 1)
-    ''');
-    await database.customStatement('PRAGMA user_version = 1');
 
     await database.ensureSchema();
 
@@ -76,39 +76,39 @@ void main() {
   });
 
   test('version 2 conflicts migrate to version 3 without data loss', () async {
-    final database = ConstructionDatabase(NativeDatabase.memory());
+    final database = _legacyDatabase(2, [
+      '''
+        CREATE TABLE sync_conflicts (
+          id TEXT PRIMARY KEY,
+          company_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          created_by_user_id TEXT,
+          updated_by_user_id TEXT,
+          is_deleted INTEGER NOT NULL DEFAULT 0,
+          sync_status TEXT NOT NULL DEFAULT 'conflict',
+          version INTEGER NOT NULL DEFAULT 1,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          local_payload_json TEXT NOT NULL,
+          remote_payload_json TEXT NOT NULL,
+          local_version INTEGER NOT NULL,
+          remote_version INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'open',
+          resolved_by_user_id TEXT,
+          resolved_at INTEGER,
+          resolution TEXT
+        )
+      ''',
+      '''
+        INSERT INTO sync_conflicts (
+          id, company_id, created_at, updated_at, entity_type, entity_id,
+          local_payload_json, remote_payload_json, local_version, remote_version
+        ) VALUES ('d1_conflict', 'company-1', 1, 1, 'projects', 'p1',
+          '{}', '{}', 1, 2)
+      ''',
+    ]);
     addTearDown(database.close);
-    await database.customStatement('''
-      CREATE TABLE sync_conflicts (
-        id TEXT PRIMARY KEY,
-        company_id TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        created_by_user_id TEXT,
-        updated_by_user_id TEXT,
-        is_deleted INTEGER NOT NULL DEFAULT 0,
-        sync_status TEXT NOT NULL DEFAULT 'conflict',
-        version INTEGER NOT NULL DEFAULT 1,
-        entity_type TEXT NOT NULL,
-        entity_id TEXT NOT NULL,
-        local_payload_json TEXT NOT NULL,
-        remote_payload_json TEXT NOT NULL,
-        local_version INTEGER NOT NULL,
-        remote_version INTEGER NOT NULL,
-        status TEXT NOT NULL DEFAULT 'open',
-        resolved_by_user_id TEXT,
-        resolved_at INTEGER,
-        resolution TEXT
-      )
-    ''');
-    await database.customStatement('''
-      INSERT INTO sync_conflicts (
-        id, company_id, created_at, updated_at, entity_type, entity_id,
-        local_payload_json, remote_payload_json, local_version, remote_version
-      ) VALUES ('d1_conflict', 'company-1', 1, 1, 'projects', 'p1',
-        '{}', '{}', 1, 2)
-    ''');
-    await database.customStatement('PRAGMA user_version = 2');
 
     await database.ensureSchema();
 
@@ -116,6 +116,47 @@ void main() {
         await database.customSelect('PRAGMA table_info(sync_conflicts)').get();
     final names = columns.map((row) => row.read<String>('name')).toSet();
     expect(names, containsAll({'remote_delta_id', 'remote_operation'}));
+    expect(await database.countRows('sync_conflicts'), 1);
+  });
+
+  test('version 4 conflicts migrate to version 5 with project scope', () async {
+    final database = _legacyDatabase(4, [
+      '''
+        CREATE TABLE sync_conflicts (
+          id TEXT PRIMARY KEY,
+          company_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          created_by_user_id TEXT,
+          updated_by_user_id TEXT,
+          is_deleted INTEGER NOT NULL DEFAULT 0,
+          sync_status TEXT NOT NULL DEFAULT 'conflict',
+          version INTEGER NOT NULL DEFAULT 1,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          local_payload_json TEXT NOT NULL,
+          remote_payload_json TEXT NOT NULL,
+          local_version INTEGER NOT NULL,
+          remote_version INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'open'
+        )
+      ''',
+      '''
+        INSERT INTO sync_conflicts (
+          id, company_id, created_at, updated_at, entity_type, entity_id,
+          local_payload_json, remote_payload_json, local_version, remote_version
+        ) VALUES ('legacy-conflict', 'company-1', 1, 1, 'projects', 'p1',
+          '{}', '{}', 1, 2)
+      ''',
+    ]);
+    addTearDown(database.close);
+
+    await database.ensureSchema();
+
+    final columns =
+        await database.customSelect('PRAGMA table_info(sync_conflicts)').get();
+    final names = columns.map((row) => row.read<String>('name')).toSet();
+    expect(names, contains('project_id'));
     expect(await database.countRows('sync_conflicts'), 1);
   });
 
@@ -135,6 +176,7 @@ void main() {
       'version',
     };
     for (final table in AppSchemaSql.tableNames) {
+      if (AppSchemaSql.globalTableNames.contains(table)) continue;
       final columns =
           await database.customSelect('PRAGMA table_info($table);').get();
       final names = columns.map((row) => row.read<String>('name')).toSet();
@@ -144,4 +186,20 @@ void main() {
       }
     }
   });
+}
+
+ConstructionDatabase _legacyDatabase(
+  int schemaVersion,
+  List<String> statements,
+) {
+  return ConstructionDatabase(
+    NativeDatabase.memory(
+      setup: (database) {
+        for (final statement in statements) {
+          database.execute(statement);
+        }
+        database.execute('PRAGMA user_version = $schemaVersion;');
+      },
+    ),
+  );
 }

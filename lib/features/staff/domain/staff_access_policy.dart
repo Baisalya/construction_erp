@@ -8,6 +8,7 @@ class StaffAccessPolicy {
     required this.staff,
     required this.allowedPermissions,
     this.assignedProjectIds = const <String>{},
+    this.canAccessAllProjects = false,
     this.cachedAt,
     this.isOfflineCache = false,
   });
@@ -15,6 +16,7 @@ class StaffAccessPolicy {
   final StaffProfile staff;
   final Set<PermissionKey> allowedPermissions;
   final Set<String> assignedProjectIds;
+  final bool canAccessAllProjects;
   final int? cachedAt;
   final bool isOfflineCache;
 
@@ -40,7 +42,7 @@ class StaffAccessPolicy {
     if (!staff.canUseCompanyData) {
       return false;
     }
-    if (staff.isOwner || staff.isAdmin) {
+    if (staff.isOwner || staff.isAdmin || canAccessAllProjects) {
       return true;
     }
     if (assignedProjectIds.isEmpty) {
